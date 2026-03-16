@@ -243,6 +243,46 @@ MEGYE_COORDS = {
 }
 
 # ═══════════════════════════════════════════════════════
+# MAGYARORSZÁG MEGYE GEOJSON (egyszerűsített poligonok)
+# ═══════════════════════════════════════════════════════
+_HU_POLY = {
+    "GYŐR-MOSON-SOPRON": [[16.1,47.4],[16.7,47.8],[17.3,47.9],[17.7,47.9],[17.8,47.7],[17.6,47.5],[17.5,47.3],[17.2,47.2],[16.8,47.2],[16.4,47.2],[16.1,47.3],[16.1,47.4]],
+    "KOMÁROM-ESZTERGOM": [[17.5,47.5],[17.7,47.8],[18.0,47.9],[18.5,47.8],[18.7,47.6],[18.6,47.4],[18.3,47.3],[17.9,47.3],[17.6,47.3],[17.5,47.4],[17.5,47.5]],
+    "VAS":   [[16.1,47.3],[16.4,47.2],[16.8,47.2],[17.2,47.2],[17.5,47.3],[17.5,47.0],[17.3,46.7],[16.9,46.5],[16.5,46.5],[16.1,46.7],[16.1,47.1],[16.1,47.3]],
+    "VESZPRÉM": [[17.2,47.6],[17.5,47.5],[17.7,47.5],[18.0,47.5],[18.4,47.5],[18.5,47.4],[18.4,47.2],[17.9,47.2],[17.5,47.0],[17.3,46.9],[17.1,47.0],[17.0,47.2],[17.0,47.4],[17.2,47.6]],
+    "ZALA":  [[16.1,46.7],[16.5,46.5],[16.9,46.5],[17.3,46.6],[17.5,46.5],[17.5,46.2],[17.2,45.9],[16.8,45.9],[16.4,46.1],[16.1,46.4],[16.1,46.7]],
+    "SOMOGY": [[17.0,47.1],[17.2,46.9],[17.5,46.8],[17.8,46.8],[18.2,46.9],[18.5,46.7],[18.5,46.2],[18.2,45.8],[17.7,45.7],[17.2,45.8],[16.9,46.1],[16.8,46.4],[17.0,46.7],[17.0,47.1]],
+    "BARANYA": [[17.4,46.6],[17.8,46.7],[18.1,46.7],[18.4,46.5],[18.5,46.3],[18.5,45.8],[18.1,45.7],[17.7,45.7],[17.3,45.8],[17.0,46.1],[17.2,46.4],[17.4,46.6]],
+    "TOLNA": [[17.9,47.2],[18.1,47.2],[18.6,47.2],[18.8,47.0],[18.9,46.8],[18.7,46.4],[18.5,46.1],[18.2,46.1],[18.0,46.3],[17.9,46.6],[17.8,46.8],[17.9,47.0],[17.9,47.2]],
+    "FEJÉR": [[17.8,47.5],[18.0,47.6],[18.4,47.6],[18.7,47.6],[19.0,47.5],[19.0,47.2],[18.9,47.0],[18.7,46.8],[18.5,46.8],[18.2,46.8],[17.9,46.9],[17.8,47.1],[17.7,47.3],[17.8,47.5]],
+    "BUDAPEST": [[18.9,47.6],[19.1,47.7],[19.35,47.65],[19.35,47.4],[19.1,47.3],[18.9,47.35],[18.9,47.5],[18.9,47.6]],
+    "PEST": [[18.5,48.0],[18.9,48.3],[19.3,48.4],[19.9,48.2],[20.4,48.1],[20.5,47.8],[20.3,47.5],[20.2,47.2],[19.9,46.9],[19.5,46.9],[19.0,46.9],[18.7,47.0],[18.7,47.3],[18.9,47.4],[19.1,47.3],[19.35,47.4],[19.35,47.65],[19.1,47.7],[18.9,47.6],[18.9,47.8],[18.5,48.0]],
+    "NÓGRÁD": [[18.7,48.1],[19.0,48.4],[19.5,48.4],[19.9,48.3],[20.1,48.1],[20.0,47.9],[19.6,47.8],[19.1,47.8],[18.8,47.9],[18.7,48.1]],
+    "HEVES": [[19.6,48.1],[20.1,48.3],[20.5,48.2],[20.6,47.9],[20.5,47.7],[20.3,47.5],[19.9,47.5],[19.5,47.6],[19.5,47.8],[19.6,48.1]],
+    "BORSOD-ABAÚJ-ZEMPLÉN": [[20.0,48.2],[20.5,48.5],[21.3,48.6],[22.1,48.5],[22.2,48.2],[21.8,47.8],[21.3,47.8],[20.8,47.8],[20.5,47.7],[20.3,47.8],[20.1,47.9],[20.0,48.2]],
+    "SZABOLCS-SZATMÁR-BEREG": [[21.3,48.5],[22.0,48.6],[22.9,48.2],[22.9,47.7],[22.4,47.6],[21.9,47.7],[21.3,47.9],[21.0,48.0],[21.0,48.3],[21.3,48.5]],
+    "HAJDÚ-BIHAR": [[21.0,47.8],[21.3,47.8],[21.8,47.9],[22.0,47.7],[22.4,47.6],[22.3,47.1],[21.9,46.8],[21.5,46.8],[21.0,47.0],[20.8,47.3],[20.8,47.6],[21.0,47.8]],
+    "JÁSZ-NAGYKUN-SZOLNOK": [[19.8,47.7],[20.3,47.7],[20.8,47.7],[21.0,47.6],[21.0,47.0],[20.7,46.8],[20.3,46.8],[19.9,46.8],[19.5,47.0],[19.5,47.3],[19.7,47.5],[19.8,47.7]],
+    "BÁCS-KISKUN": [[18.7,47.2],[19.0,47.1],[19.5,47.1],[19.9,47.0],[20.2,47.0],[20.2,46.8],[20.3,46.4],[20.1,45.9],[19.6,45.8],[19.1,45.8],[18.7,46.0],[18.6,46.3],[18.7,46.8],[18.8,47.0],[18.7,47.2]],
+    "CSONGRÁD-CSANÁD": [[20.2,47.1],[20.7,47.0],[21.0,47.0],[21.3,46.8],[21.3,46.2],[21.1,45.9],[20.5,45.8],[20.1,46.0],[19.9,46.3],[20.1,46.7],[20.2,47.0],[20.2,47.1]],
+    "BÉKÉS": [[21.0,47.0],[21.4,47.1],[21.8,47.0],[22.2,47.1],[22.3,46.8],[22.1,46.2],[21.5,45.9],[21.0,46.0],[20.8,46.3],[21.0,46.7],[21.0,47.0]],
+}
+
+HU_GEOJSON = {
+    "type": "FeatureCollection",
+    "features": [
+        {
+            "type": "Feature",
+            "id": name,
+            "properties": {"name": name},
+            "geometry": {"type": "Polygon", "coordinates": [coords]}
+        }
+        for name, coords in _HU_POLY.items()
+    ]
+}
+
+
+# ═══════════════════════════════════════════════════════
 # SEGÉDFÜGGVÉNYEK
 # ═══════════════════════════════════════════════════════
 def fmt(n):
@@ -383,59 +423,134 @@ if page == "Főoldal":
 
     st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
 
-    # Térkép + eredmény
-    col_map, col_res = st.columns([3,2])
+    # ── CHOROPLETH TÉRKÉP (teljes szélesség) ──
+    st.markdown('<div class="chart-card" style="padding:16px 20px;">', unsafe_allow_html=True)
 
-    with col_map:
-        st.markdown('<div class="chart-card"><h4>🗺️ Interaktív térkép – 2022 egyéni szavazatarányok</h4>', unsafe_allow_html=True)
-        map_toggle = st.radio("Megjelenített adat:",["Fidesz %","Ellenzék %","Részvétel %"],
-                               horizontal=True, label_visibility="collapsed", key="mt")
-        val_col = {"Fidesz %":"fp","Ellenzék %":"elp","Részvétel %":"rp"}[map_toggle]
-        cscale = {"Fidesz %":[[0,"#fde8d5"],[.5,C["orange"]],[1,"#7a3010"]],
-                   "Ellenzék %":[[0,"#d5e8f5"],[.5,C["blue"]],[1,"#0a2f42"]],
-                   "Részvétel %":[[0,"#e8edf5"],[.5,C["blue"]],[1,"#0a2f42"]]}[map_toggle]
-        map_data = [{"megye":k.title(),"lat":MEGYE_COORDS[k][0],"lon":MEGYE_COORDS[k][1],
-                     "val":d[val_col],"rp":d["rp"],"fp":d["fp"],"elp":d["elp"],"v":d["v"]}
-                    for k,d in COUNTY.items()]
-        mdf = pd.DataFrame(map_data)
-        fig_map = px.scatter_geo(mdf, lat="lat", lon="lon", size="v",
-            color="val", color_continuous_scale=cscale, hover_name="megye", size_max=44,
-            hover_data={"fp":":.1f","elp":":.1f","rp":":.1f","lat":False,"lon":False,"v":":,","val":":.1f"},
-            labels={"fp":"Fidesz %","elp":"Ellenzék %","rp":"Részvétel %","v":"Válasz.","val":map_toggle})
-        fig_map.update_geos(scope="europe",center=dict(lat=47.2,lon=19.3),projection_scale=9,
-            showland=True,landcolor="#EEF1F5",showocean=False,showcoastlines=True,coastlinecolor="#cdd4df",
-            showcountries=True,countrycolor="#b0bcc9",showframe=False,bgcolor="rgba(0,0,0,0)")
-        fig_map.update_layout(**{k:v for k,v in PLOT_BASE.items() if k!="margin"}, height=370, margin=dict(l=0,r=0,t=0,b=0),
-            coloraxis_colorbar=dict(title=map_toggle,len=0.6,thickness=10,tickfont_size=10),
-            geo=dict(bgcolor="rgba(0,0,0,0)"))
-        st.plotly_chart(fig_map, use_container_width=True, config={"displayModeBar":False})
-        st.markdown('</div>', unsafe_allow_html=True)
+    map_col1, map_col2, map_col3, map_col4 = st.columns([2,2,2,1])
+    with map_col1:
+        map_toggle = st.radio("", ["🎨 Győztes párt","🟠 Fidesz %","🔵 Ellenzék %","📊 Részvétel %"],
+                               horizontal=False, label_visibility="collapsed", key="mt")
 
-    with col_res:
-        st.markdown('<div class="chart-card"><h4>📊 Szavazatarányok – egyéni (2022)</h4>', unsafe_allow_html=True)
-        parties = ["Fidesz-KDNP","Ellenzék","Mi Hazánk","MKKP","Egyéb"]
-        total_e = active["érvényes"]
-        for p in parties:
-            pct_ = round(active.get(p,0)/total_e*100,1)
-            clr  = PARTY_COLORS.get(p,C["gray_mid"])
-            st.markdown(f"""
-            <div class="party-row">
-                <div class="party-dot" style="background:{clr};"></div>
-                <div class="party-name">{p}</div>
-                <div class="party-right">
-                    <div class="party-pct">{pct_}%</div>
-                    <div class="party-votes">{fmt(active.get(p,0))} szav.</div>
-                </div>
-            </div>""", unsafe_allow_html=True)
-        fig_d = go.Figure(go.Pie(
-            labels=parties, values=[active.get(p,0) for p in parties],
-            marker_colors=[PARTY_COLORS.get(p,C["gray_mid"]) for p in parties],
-            hole=0.55, textinfo="none",
-            hovertemplate="%{label}: %{percent}<extra></extra>",
-        ))
-        fig_d.update_layout(**{k:v for k,v in PLOT_BASE.items() if k!="margin"},height=190,margin=dict(l=0,r=0,t=10,b=0),showlegend=False)
-        st.plotly_chart(fig_d, use_container_width=True, config={"displayModeBar":False})
-        st.markdown('</div>', unsafe_allow_html=True)
+    # Build map dataframe
+    map_df_rows = []
+    for megye_key, d in COUNTY.items():
+        winner = "Fidesz-KDNP" if d["F"] > d["El"] else "Ellenzék"
+        margin = d["fp"] - d["elp"]
+        map_df_rows.append({
+            "megye": megye_key,
+            "megye_nev": megye_key.title(),
+            "winner": winner,
+            "fp": d["fp"], "elp": d["elp"], "rp": d["rp"],
+            "margin": round(margin, 1),
+            "valasztopolgar": d["v"],
+        })
+    map_df = pd.DataFrame(map_df_rows)
+
+    if map_toggle == "🎨 Győztes párt":
+        # Binary color: orange = Fidesz, blue = Ellenzék
+        map_df["color_val"] = map_df["winner"].map({"Fidesz-KDNP": 1.0, "Ellenzék": 0.0})
+        fig_map = go.Figure()
+        for _, row in map_df.iterrows():
+            poly = _HU_POLY.get(row["megye"])
+            if not poly: continue
+            lons = [p[0] for p in poly]
+            lats = [p[1] for p in poly]
+            clr = C["orange"] if row["winner"] == "Fidesz-KDNP" else C["blue"]
+            fig_map.add_trace(go.Scattergeo(
+                lon=lons, lat=lats,
+                fill="toself",
+                fillcolor=clr,
+                line=dict(color="white", width=1.2),
+                mode="lines",
+                name=row["winner"],
+                showlegend=False,
+                hovertemplate=(
+                    f"<b>{row['megye_nev']}</b><br>"
+                    f"Győztes: <b>{row['winner']}</b><br>"
+                    f"Fidesz-KDNP: {row['fp']}%<br>"
+                    f"Ellenzék: {row['elp']}%<br>"
+                    f"Fölény: {row['margin']}pp<br>"
+                    f"Részvétel: {row['rp']}%<extra></extra>"
+                ),
+            ))
+        # Add legend manually
+        for name, clr in [("Fidesz-KDNP", C["orange"]), ("Ellenzék", C["blue"])]:
+            fig_map.add_trace(go.Scattergeo(lon=[None],lat=[None],mode="markers",
+                marker=dict(size=12,color=clr,symbol="square"),name=name,showlegend=True))
+
+    else:
+        val_col = {"🟠 Fidesz %":"fp","🔵 Ellenzék %":"elp","📊 Részvétel %":"rp"}[map_toggle]
+        cscale  = {"🟠 Fidesz %":[[0,"#fde8d5"],[.4,C["orange"]],[1,"#7a3010"]],
+                   "🔵 Ellenzék %":[[0,"#d5e8f5"],[.4,C["blue"]],[1,"#0a2f42"]],
+                   "📊 Részvétel %":[[0,"#eef1f5"],[.5,"#8aaac0"],[1,C["navy"]]]}[map_toggle]
+        import plotly.colors as pc
+        vals = map_df[val_col].tolist()
+        vmin, vmax = min(vals), max(vals)
+        def val_to_color(v):
+            frac = (v - vmin) / (vmax - vmin + 0.001)
+            return pc.sample_colorscale(cscale, frac)[0]
+
+        fig_map = go.Figure()
+        for _, row in map_df.iterrows():
+            poly = _HU_POLY.get(row["megye"])
+            if not poly: continue
+            lons = [p[0] for p in poly]
+            lats = [p[1] for p in poly]
+            clr = val_to_color(row[val_col])
+            label = val_col.replace("fp","Fidesz %").replace("elp","Ellenzék %").replace("rp","Részvétel %")
+            fig_map.add_trace(go.Scattergeo(
+                lon=lons, lat=lats,
+                fill="toself", fillcolor=clr,
+                line=dict(color="white", width=1.2),
+                mode="lines", showlegend=False,
+                hovertemplate=(
+                    f"<b>{row['megye_nev']}</b><br>"
+                    f"{label}: <b>{row[val_col]}%</b><br>"
+                    f"Fidesz: {row['fp']}% · Ellenzék: {row['elp']}%<br>"
+                    f"Részvétel: {row['rp']}%<extra></extra>"
+                ),
+            ))
+
+    fig_map.update_geos(
+        visible=True,
+        showland=True, landcolor="#EEF1F5",
+        showocean=False,
+        showcoastlines=True, coastlinecolor="#cdd4df",
+        showcountries=True, countrycolor="#b5c4d0",
+        showframe=False,
+        bgcolor="rgba(0,0,0,0)",
+        lataxis=dict(range=[45.5, 48.9]),
+        lonaxis=dict(range=[15.8, 23.2]),
+        projection_type="mercator",
+    )
+    fig_map.update_layout(
+        font_family="Inter, system-ui, sans-serif",
+        paper_bgcolor="rgba(0,0,0,0)",
+        margin=dict(l=0, r=0, t=0, b=0),
+        height=500,
+        legend=dict(
+            orientation="h", yanchor="bottom", y=0.02, xanchor="right", x=0.98,
+            bgcolor="rgba(255,255,255,.85)", bordercolor="#ddd", borderwidth=1,
+            font_size=12,
+        ),
+        geo=dict(bgcolor="rgba(0,0,0,0)"),
+    )
+    st.plotly_chart(fig_map, use_container_width=True, config={"displayModeBar":False, "scrollZoom":False})
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    # ── Eredmény sáv (map alatt, teljes szélesség) ──
+    parties = ["Fidesz-KDNP","Ellenzék","Mi Hazánk","MKKP","Egyéb"]
+    total_e = active["érvényes"]
+    res_cols = st.columns(len(parties))
+    for col_, p in zip(res_cols, parties):
+        pct_ = round(active.get(p,0)/total_e*100,1)
+        clr  = PARTY_COLORS.get(p,C["gray_mid"])
+        col_.markdown(f"""
+        <div style="background:{clr};border-radius:8px;padding:10px 14px;text-align:center;color:white;margin-bottom:4px;">
+            <div style="font-size:10px;font-weight:700;letter-spacing:.06em;opacity:.85;margin-bottom:3px;">{p.upper()}</div>
+            <div style="font-size:22px;font-weight:700;font-family:'Playfair Display',serif;">{pct_}%</div>
+            <div style="font-size:10px;opacity:.7;">{fmt(active.get(p,0))} szavazat</div>
+        </div>""", unsafe_allow_html=True)
 
     st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
     st.markdown('<p class="sec-title" style="font-size:16px;margin-bottom:12px;">Elemzési modulok</p>', unsafe_allow_html=True)
