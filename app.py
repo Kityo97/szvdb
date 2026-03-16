@@ -109,8 +109,45 @@ html, body, [class*="css"] {{
     border: 1px solid rgba(255,255,255,.12) !important;
     border-radius: 8px !important; color: white !important;
 }}
-.nav-sec {{ padding: 6px 16px 4px; font-size:10px; font-weight:700;
-    letter-spacing:.1em; text-transform:uppercase; color:{C["sky"]} !important; margin-top:12px; }}
+/* Nav gombok – levegős elrendezés */
+[data-testid="stSidebar"] .stButton {{ margin-bottom: 4px !important; }}
+[data-testid="stSidebar"] .stButton > button {{
+    background: transparent !important;
+    color: rgba(255,255,255,.75) !important;
+    border: none !important;
+    border-radius: 8px !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    padding: 10px 14px !important;
+    text-align: left !important;
+    width: 100% !important;
+    transition: background .15s, color .15s;
+    letter-spacing: .01em;
+}}
+[data-testid="stSidebar"] .stButton > button:hover {{
+    background: rgba(255,255,255,.1) !important;
+    color: white !important;
+}}
+/* Szekció fejléc */
+.nav-sec {{
+    padding: 14px 16px 6px;
+    font-size: 9px; font-weight: 700;
+    letter-spacing: .14em; text-transform: uppercase;
+    color: {C["sky"]} !important;
+    border-top: 1px solid rgba(255,255,255,.06);
+    margin-top: 8px;
+}}
+.nav-sec:first-child {{ border-top: none; margin-top: 0; }}
+/* Selectbox label */
+[data-testid="stSidebar"] label {{
+    font-size: 11px !important; font-weight: 600 !important;
+    letter-spacing: .06em !important;
+    color: rgba(255,255,255,.6) !important;
+    margin-bottom: 4px !important;
+    display: block;
+}}
+/* Selectbox widget spacing */
+[data-testid="stSidebar"] .stSelectbox {{ margin-bottom: 12px !important; }}
 
 /* ── KPI kártyák ── */
 .kpi-wrap {{
@@ -357,8 +394,9 @@ st.markdown(f"""
 # SIDEBAR
 # ═══════════════════════════════════════════════════════
 with st.sidebar:
-    st.markdown('<div style="height:14px;"></div>', unsafe_allow_html=True)
-    st.markdown('<div class="nav-sec">Navigáció</div>', unsafe_allow_html=True)
+    st.markdown('<div style="height:20px;"></div>', unsafe_allow_html=True)
+    st.markdown('<div class="nav-sec" style="border-top:none;margin-top:0;">Navigáció</div>', unsafe_allow_html=True)
+    st.markdown('<div style="padding:4px 8px 0;">', unsafe_allow_html=True)
 
     if "page" not in st.session_state:
         st.session_state.page = "Főoldal"
@@ -370,8 +408,10 @@ with st.sidebar:
         if st.button(f"{icon_}  {name_}", key=f"nav_{name_}", use_container_width=True):
             st.session_state.page = name_
 
-    st.markdown('<div class="nav-sec" style="margin-top:18px;">Szűrők</div>', unsafe_allow_html=True)
-    st.markdown('<div style="padding:0 8px 0;">', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="nav-sec">Szűrők</div>', unsafe_allow_html=True)
+    st.markdown('<div style="padding:8px 12px 0;">', unsafe_allow_html=True)
 
     ev_ = st.selectbox("📅 Év", ["2022"], help="2010–2018 hamarosan")
     szint_ = st.selectbox("📍 Terület", ["Országos","Megye","OEVK (Bács-Kiskun)"])
@@ -385,11 +425,12 @@ with st.sidebar:
 
     st.markdown('</div>', unsafe_allow_html=True)
     st.markdown("""
-    <div style="padding:14px 16px;margin-top:16px;border-top:1px solid rgba(255,255,255,.06);font-size:10px;color:rgba(255,255,255,.25);line-height:1.8;">
+    <div style="padding:16px 16px 20px;margin-top:20px;border-top:1px solid rgba(255,255,255,.08);
+                font-size:11px;color:rgba(255,255,255,.35);line-height:2.0;">
       📂 NVI 2022 – Egyéni + listás<br>
       📊 KSH Népszámlálás 2022<br>
       🔬 Századvég nagykutatás<br>
-      <span style="color:rgba(233,113,50,.5);">N=500 Bács02 · N=20 014 Ország</span>
+      <span style="color:rgba(233,113,50,.55);font-size:10px;">N=500 Bács02 · N=20 014 Ország</span>
     </div>""", unsafe_allow_html=True)
 
 active = get_active(szint_, terulet_)
