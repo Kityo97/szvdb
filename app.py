@@ -1,1292 +1,778 @@
 """
-Politikai Hőtérkép Dashboard – Századvég Alapítvány
-Streamlit alkalmazás – 2022 választási adatok + Bács-Kiskun kutatási adatok
+Politikai Hőtérkép – Századvég Alapítvány
+Újratervezett, modern Streamlit dashboard
 """
 
 import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
+import os, base64
 
-# ─────────────────────────────────────────────
+# ═══════════════════════════════════════════════════════
 # OLDAL KONFIGURÁCIÓ
-# ─────────────────────────────────────────────
+# ═══════════════════════════════════════════════════════
 st.set_page_config(
-    page_title="Politikai Hőtérkép",
+    page_title="Politikai Hőtérkép · Századvég",
     page_icon="🗺️",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
-# ─────────────────────────────────────────────
-# GLOBÁLIS STÍLUS (SZV színvilág)
-# ─────────────────────────────────────────────
-SZV_CSS = """
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@400;700&family=Source+Sans+3:wght@300;400;600;700&display=swap');
+# ═══════════════════════════════════════════════════════
+# LOGÓK BETÖLTÉSE
+# ═══════════════════════════════════════════════════════
+def load_logo_b64(path):
+    try:
+        if os.path.exists(path):
+            with open(path, "rb") as f:
+                return base64.b64encode(f.read()).decode()
+    except:
+        pass
+    return None
 
-/* ─── Alapok ─── */
-html, body, [class*="css"] {
-    font-family: 'Source Sans 3', sans-serif;
-    background-color: #f4f5f7;
-    color: #0E2841;
-}
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+LOGO_B64 = load_logo_b64(os.path.join(BASE_DIR, "szv_logo.png"))
+ICON_B64 = load_logo_b64(os.path.join(BASE_DIR, "szv_icon.png"))
 
-/* ─── Sidebar ─── */
-[data-testid="stSidebar"] {
-    background: #0E2841 !important;
-    border-right: 3px solid #E97132;
-}
-[data-testid="stSidebar"] .stSelectbox label,
-[data-testid="stSidebar"] p,
-[data-testid="stSidebar"] h1,
-[data-testid="stSidebar"] h2,
-[data-testid="stSidebar"] h3,
-[data-testid="stSidebar"] span,
-[data-testid="stSidebar"] div { color: #E8E8E8 !important; }
-[data-testid="stSidebar"] .stRadio label { color: #E8E8E8 !important; }
-[data-testid="stSidebar"] select { background: #156082 !important; color: white !important; }
+logo_img  = f'<img src="data:image/png;base64,{LOGO_B64}" style="height:34px;">' if LOGO_B64 else '<span style="font-weight:700;font-size:15px;letter-spacing:.15em;color:#E8E8E8;">SZÁZADVÉG</span>'
+icon_img  = f'<img src="data:image/png;base64,{ICON_B64}" style="height:26px;filter:brightness(0) invert(1);">' if ICON_B64 else "✦"
 
-/* ─── KPI kártyák ─── */
-.kpi-card {
-    background: #0E2841;
-    border-radius: 10px;
-    padding: 20px 16px 16px;
-    border-left: 4px solid #E97132;
-    margin-bottom: 8px;
-    box-shadow: 0 4px 15px rgba(14,40,65,0.15);
-    min-height: 120px;
-}
-.kpi-card .kpi-label {
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: #0F9ED5 !important;
-    margin-bottom: 6px;
-}
-.kpi-card .kpi-value {
-    font-family: 'Libre Baskerville', serif;
-    font-size: 28px;
-    font-weight: 700;
-    color: #FFFFFF !important;
-    line-height: 1.1;
-}
-.kpi-card .kpi-sub {
-    font-size: 13px;
-    color: #E97132 !important;
-    margin-top: 5px;
-    font-weight: 600;
-}
-.kpi-card .kpi-note {
-    font-size: 10px;
-    color: #8aaac0 !important;
-    margin-top: 2px;
+# ═══════════════════════════════════════════════════════
+# DESIGN KONSTANSOK
+# ═══════════════════════════════════════════════════════
+C = {
+    "navy":     "#0E2841", "navy_mid":  "#163555",
+    "blue":     "#156082", "sky":       "#0F9ED5",
+    "orange":   "#E97132", "orange_lt": "#F4A469",
+    "green":    "#196B24", "purple":    "#A02B93",
+    "gray_lt":  "#E8E8E8", "gray_mid":  "#8aaac0",
+    "white":    "#FFFFFF", "bg":        "#F0F2F5",
+    "red":      "#C0392B", "red_lt":    "#E74C3C",
+    "teal":     "#1ABC9C",
 }
 
-/* ─── Nav kártyák ─── */
-.nav-card {
-    background: white;
-    border-radius: 10px;
-    padding: 20px;
-    border-top: 4px solid #156082;
-    box-shadow: 0 2px 10px rgba(14,40,65,0.08);
-    cursor: pointer;
-    transition: all 0.2s;
-    margin-bottom: 10px;
-    min-height: 110px;
-}
-.nav-card:hover { border-top-color: #E97132; box-shadow: 0 6px 20px rgba(14,40,65,0.15); }
-.nav-card .nav-icon { font-size: 24px; margin-bottom: 8px; }
-.nav-card .nav-title { font-size: 14px; font-weight: 700; color: #0E2841; }
-.nav-card .nav-desc { font-size: 11px; color: #6b7c93; margin-top: 4px; }
-
-/* ─── Szekció fejléc ─── */
-.section-header {
-    background: linear-gradient(135deg, #0E2841 0%, #156082 100%);
-    border-radius: 8px;
-    padding: 18px 22px;
-    margin-bottom: 20px;
-    margin-top: 10px;
-}
-.section-header h2 {
-    font-family: 'Libre Baskerville', serif;
-    color: #FFFFFF !important;
-    margin: 0;
-    font-size: 22px;
-}
-.section-header p {
-    color: #0F9ED5 !important;
-    margin: 4px 0 0;
-    font-size: 13px;
+PARTY_COLORS = {
+    "Fidesz-KDNP": C["orange"], "Ellenzék": C["blue"],
+    "Mi Hazánk":   C["green"],  "MKKP":     C["purple"],
+    "DK":          "#2F7EC7",   "TISZA":    C["sky"],
+    "Egyéb":       C["gray_mid"],
 }
 
-/* ─── Oldal cím ─── */
-.page-title {
-    font-family: 'Libre Baskerville', serif;
-    font-size: 28px;
-    color: #0E2841;
-    font-weight: 700;
-    border-bottom: 3px solid #E97132;
-    padding-bottom: 10px;
-    margin-bottom: 20px;
-}
-
-/* ─── Fidesz badge ─── */
-.badge-fidesz  { background:#E97132; color:white; padding:3px 10px; border-radius:12px; font-size:12px; font-weight:700; }
-.badge-tisza   { background:#156082; color:white; padding:3px 10px; border-radius:12px; font-size:12px; font-weight:700; }
-.badge-mihazank{ background:#196B24; color:white; padding:3px 10px; border-radius:12px; font-size:12px; font-weight:700; }
-.badge-mkkp    { background:#A02B93; color:white; padding:3px 10px; border-radius:12px; font-size:12px; font-weight:700; }
-.badge-egyeb   { background:#8aaac0; color:white; padding:3px 10px; border-radius:12px; font-size:12px; font-weight:700; }
-
-/* ─── Info box ─── */
-.info-box {
-    background: #EBF4FB;
-    border-left: 4px solid #0F9ED5;
-    border-radius: 6px;
-    padding: 12px 16px;
-    font-size: 13px;
-    color: #0E2841;
-    margin-bottom: 16px;
-}
-
-/* ─── Plotly charts bg ─── */
-.js-plotly-plot { border-radius: 8px; }
-
-/* ─── Stacked bar legend ─── */
-.result-bar-wrap {
-    background: white;
-    border-radius: 10px;
-    padding: 20px;
-    box-shadow: 0 2px 10px rgba(14,40,65,0.08);
-    margin-bottom: 12px;
-}
-.result-bar-wrap .oevk-name {
-    font-size: 12px;
-    font-weight: 700;
-    color: #0E2841;
-    margin-bottom: 6px;
-}
-
-/* ─── Scrollable table ─── */
-.stDataFrame { border-radius: 8px; }
-
-/* Streamlit tweaks */
-.stButton>button {
-    background: #156082; color: white; border: none;
-    border-radius: 6px; font-weight: 600;
-}
-.stButton>button:hover { background: #E97132; }
-h1,h2,h3 { font-family: 'Libre Baskerville', serif; }
-.block-container { padding-top: 1.5rem; padding-bottom: 2rem; }
-</style>
-"""
-st.markdown(SZV_CSS, unsafe_allow_html=True)
-
-# ─────────────────────────────────────────────
-# KONSTANSOK ÉS SZÍNEK
-# ─────────────────────────────────────────────
-COLORS = {
-    "Fidesz-KDNP":     "#E97132",
-    "Ellenzék/TISZA":  "#156082",
-    "TISZA":           "#0F9ED5",
-    "Mi Hazánk":       "#196B24",
-    "MKKP":            "#A02B93",
-    "DK":              "#2F7EC7",
-    "Egyéb":           "#8aaac0",
-    "Nem szavaz":      "#cccccc",
-    "Bizonytalan":     "#888888",
-}
-
-PLOTLY_LAYOUT = dict(
-    font_family="Source Sans 3",
+PLOT_BASE = dict(
+    font_family="Inter, system-ui, sans-serif",
+    font_color=C["navy"],
     paper_bgcolor="rgba(0,0,0,0)",
     plot_bgcolor="rgba(0,0,0,0)",
-    margin=dict(l=10, r=10, t=40, b=10),
+    margin=dict(l=8, r=8, t=36, b=8),
 )
 
-# ─────────────────────────────────────────────
+# ═══════════════════════════════════════════════════════
+# CSS
+# ═══════════════════════════════════════════════════════
+st.markdown(f"""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@600;700&display=swap');
+
+html, body, [class*="css"] {{
+    font-family: 'Inter', system-ui, sans-serif;
+    background: {C["bg"]};
+    color: {C["navy"]};
+}}
+.block-container {{ padding: 0 !important; max-width: 100% !important; }}
+.main > div {{ padding: 0; }}
+
+/* ── Topbar ── */
+#topbar {{
+    background: {C["navy"]};
+    padding: 0 28px; height: 60px;
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 999;
+    box-shadow: 0 2px 12px rgba(0,0,0,.25);
+    border-bottom: 2px solid {C["orange"]};
+}}
+#topbar .tb-title {{
+    font-family: 'Playfair Display', serif;
+    font-size: 17px; font-weight: 700; color: {C["white"]}; letter-spacing:.02em;
+}}
+#topbar .tb-badge {{
+    background: {C["orange"]}; color: white; font-size: 10px; font-weight: 700;
+    padding: 2px 8px; border-radius: 20px; letter-spacing:.08em; text-transform:uppercase;
+}}
+
+/* ── Sidebar ── */
+[data-testid="stSidebar"] {{ background: {C["navy"]} !important; border-right: none !important; }}
+[data-testid="stSidebar"] > div:first-child {{ padding: 0 !important; }}
+[data-testid="stSidebar"] * {{ color: {C["gray_lt"]} !important; }}
+[data-testid="stSidebar"] .stSelectbox > div > div {{
+    background: {C["navy_mid"]} !important;
+    border: 1px solid rgba(255,255,255,.12) !important;
+    border-radius: 8px !important; color: white !important;
+}}
+.nav-sec {{ padding: 6px 16px 4px; font-size:10px; font-weight:700;
+    letter-spacing:.1em; text-transform:uppercase; color:{C["sky"]} !important; margin-top:12px; }}
+
+/* ── KPI kártyák ── */
+.kpi-wrap {{
+    background: {C["navy"]}; border-radius: 12px; padding: 18px 18px 16px;
+    position: relative; overflow: hidden;
+    box-shadow: 0 4px 20px rgba(14,40,65,.18); height: 100%;
+}}
+.kpi-wrap::after {{ content:''; position:absolute; bottom:0; left:0; right:0; height:3px; background:{C["orange"]}; }}
+.kpi-label {{ font-size:10px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:{C["sky"]} !important; margin-bottom:8px; }}
+.kpi-value {{ font-family:'Playfair Display',serif; font-size:28px; font-weight:700; color:{C["white"]} !important; line-height:1.1; }}
+.kpi-pct {{ display:inline-block; margin-top:6px; background:rgba(233,113,50,.15); color:{C["orange_lt"]} !important; font-size:12px; font-weight:600; padding:2px 8px; border-radius:20px; }}
+.kpi-note {{ font-size:10px; color:rgba(255,255,255,.35) !important; margin-top:4px; }}
+.kpi-na {{ font-family:'Playfair Display',serif; font-size:22px; color:rgba(255,255,255,.3) !important; }}
+
+/* ── Chart kártyák ── */
+.chart-card {{
+    background: {C["white"]}; border-radius: 12px; padding: 20px;
+    box-shadow: 0 1px 6px rgba(14,40,65,.06); border: 1px solid rgba(14,40,65,.05); margin-bottom: 16px;
+}}
+.chart-card h4 {{ font-size:13px; font-weight:700; color:{C["navy"]}; margin:0 0 14px; padding-bottom:10px; border-bottom:1px solid {C["gray_lt"]}; }}
+
+/* ── Section ── */
+.sec-title {{ font-family:'Playfair Display',serif; font-size:20px; font-weight:700; color:{C["navy"]}; margin:0 0 4px; }}
+.sec-sub {{ font-size:12px; color:{C["gray_mid"]}; margin:0 0 18px; }}
+.divider {{ height:1px; background:rgba(14,40,65,.08); margin:20px 0; }}
+
+/* ── Info sáv ── */
+.info-bar {{ background:rgba(15,158,213,.07); border:1px solid rgba(15,158,213,.2); border-radius:8px; padding:10px 16px; font-size:12px; color:{C["navy"]}; margin-bottom:16px; }}
+
+/* ── Filter badge ── */
+.filter-badge {{ display:inline-flex; align-items:center; gap:6px; background:rgba(233,113,50,.1); border:1px solid {C["orange"]}; color:{C["orange"]}; border-radius:20px; padding:4px 14px; font-size:11px; font-weight:600; margin-bottom:18px; }}
+
+/* ── Party rows ── */
+.party-row {{ display:flex; align-items:center; padding:8px 12px; border-radius:6px; margin-bottom:4px; background:rgba(14,40,65,.025); }}
+.party-dot {{ width:10px; height:10px; border-radius:50%; margin-right:10px; flex-shrink:0; }}
+.party-name {{ font-size:12px; font-weight:600; flex:1; }}
+.party-right {{ text-align:right; }}
+.party-pct {{ font-size:13px; font-weight:700; color:{C["navy"]}; }}
+.party-votes {{ font-size:10px; color:{C["gray_mid"]}; }}
+
+/* ── Streamlit overrides ── */
+h1,h2,h3 {{ font-family:'Playfair Display',serif; color:{C["navy"]}; }}
+.stButton > button {{ background:{C["blue"]} !important; color:white !important; border:none !important; border-radius:8px !important; font-weight:600 !important; font-size:13px !important; padding:9px 18px !important; transition:background .2s; }}
+.stButton > button:hover {{ background:{C["orange"]} !important; }}
+.stTabs [data-baseweb="tab-list"] {{ gap:0; background:{C["gray_lt"]}; border-radius:8px; padding:3px; }}
+.stTabs [data-baseweb="tab"] {{ border-radius:6px; font-size:12px; font-weight:600; padding:7px 18px; color:{C["navy"]} !important; }}
+.stTabs [aria-selected="true"] {{ background:{C["navy"]} !important; color:white !important; }}
+.page-wrap {{ padding: 22px 28px 50px; }}
+</style>
+""", unsafe_allow_html=True)
+
+# ═══════════════════════════════════════════════════════
 # ADATOK
-# ─────────────────────────────────────────────
+# ═══════════════════════════════════════════════════════
 
-# 2022 Bács-Kiskun egyéni OEVK eredmények
-BACS_OEVK = pd.DataFrame([
-    {"oevk": "BK/1 – Kecskemét I.",      "szkhely": "Kecskemét",       "valasztopolgár": 69101, "megjelentek": 47068, "ervenytelen": 566, "érvényes": 46462,
-     "Fidesz-KDNP": 27420, "Ellenzék/TISZA": 13464, "Mi Hazánk": 3425, "MKKP": 1691, "Egyéb": 462,  "nyertes": "Dr. Salacz László",       "nyertes_part": "Fidesz-KDNP"},
-    {"oevk": "BK/2 – Kecskemét II.",     "szkhely": "Kecskemét",       "valasztopolgár": 71933, "megjelentek": 50963, "ervenytelen": 723, "érvényes": 50197,
-     "Fidesz-KDNP": 26606, "Ellenzék/TISZA": 17208, "Mi Hazánk": 3512, "MKKP": 2274, "Egyéb": 597,  "nyertes": "Dr. Szeberényi Gy. T.", "nyertes_part": "Fidesz-KDNP"},
-    {"oevk": "BK/3 – Kalocsa",           "szkhely": "Kalocsa",         "valasztopolgár": 65242, "megjelentek": 45135, "ervenytelen": 550, "érvényes": 44540,
-     "Fidesz-KDNP": 26592, "Ellenzék/TISZA": 13464, "Mi Hazánk": 2778, "MKKP": 0,    "Egyéb": 1706, "nyertes": "Font Sándor",            "nyertes_part": "Fidesz-KDNP"},
-    {"oevk": "BK/4 – Kiskunfélegyháza",  "szkhely": "Kiskunfélegyháza","valasztopolgár": 71615, "megjelentek": 48039, "ervenytelen": 625, "érvényes": 47382,
-     "Fidesz-KDNP": 29835, "Ellenzék/TISZA": 11727, "Mi Hazánk": 3427, "MKKP": 1529, "Egyéb": 864,  "nyertes": "Lezsák Sándor",           "nyertes_part": "Fidesz-KDNP"},
-    {"oevk": "BK/5 – Kiskunhalas",       "szkhely": "Kiskunhalas",     "valasztopolgár": 68267, "megjelentek": 43458, "ervenytelen": 586, "érvényes": 42827,
-     "Fidesz-KDNP": 25763, "Ellenzék/TISZA": 12218, "Mi Hazánk": 4205, "MKKP": 0,    "Egyéb": 641,  "nyertes": "Bányai Gábor",            "nyertes_part": "Fidesz-KDNP"},
-    {"oevk": "BK/6 – Baja",             "szkhely": "Baja",            "valasztopolgár": 64619, "megjelentek": 42458, "ervenytelen": 529, "érvényes": 41871,
-     "Fidesz-KDNP": 23976, "Ellenzék/TISZA": 13697, "Mi Hazánk": 3017, "MKKP": 827,  "Egyéb": 354,  "nyertes": "Zsigó Róbert",            "nyertes_part": "Fidesz-KDNP"},
-])
-BACS_OEVK["részvétel_pct"] = (BACS_OEVK["megjelentek"] / BACS_OEVK["valasztopolgár"] * 100).round(1)
-BACS_OEVK["ervenytelen_pct"] = (BACS_OEVK["ervenytelen"] / BACS_OEVK["megjelentek"] * 100).round(1)
-BACS_OEVK["fidesz_pct"]  = (BACS_OEVK["Fidesz-KDNP"]      / BACS_OEVK["érvényes"] * 100).round(1)
-BACS_OEVK["ellenZek_pct"] = (BACS_OEVK["Ellenzék/TISZA"]   / BACS_OEVK["érvényes"] * 100).round(1)
-BACS_OEVK["mihazank_pct"] = (BACS_OEVK["Mi Hazánk"]        / BACS_OEVK["érvényes"] * 100).round(1)
-BACS_OEVK["kulonbseg"]    = BACS_OEVK["Fidesz-KDNP"] - BACS_OEVK["Ellenzék/TISZA"]
+# Listás/NVI 2022 - országos
+NAT_LISTAS = {"valasztopolgar":8215304,"megjelentek":5717182,"ervenytelen":57065,"érvényes":5654860,"reszvetel_pct":69.6,"ervenytelen_pct":1.0}
+KSH_ORSZAG = {"nep":9603634,"18plus":7918836}
 
-# Aggregált Bács-Kiskun
-BACS_AGG = {
-    "valasztopolgár": 410777,
-    "megjelentek":    277121,
-    "ervenytelen":    3579,
-    "érvényes":       273542,
-    "részvétel_pct":  67.5,
-    "ervenytelen_pct": 1.3,
-    "Fidesz-KDNP":    160192,
-    "Ellenzék/TISZA": 81778,
-    "Mi Hazánk":      20364,
-    "MKKP":           6321,
-    "Egyéb":          4618,
+# Megye adatok
+COUNTY = {
+    "BÁCS-KISKUN":            {"v":410777,"m":277121,"e":3579,"é":273279,"F":160192,"El":81778,"MH":20364,"MK":6321,"Ey":4624},
+    "BARANYA":                {"v":297767,"m":201102,"e":3196,"é":197906,"F":102030,"El":71725,"MH":11631,"MK":5417,"Ey":7103},
+    "BÉKÉS":                  {"v":276924,"m":183986,"e":2861,"é":181125,"F":95638,"El":64908,"MH":12455,"MK":3975,"Ey":4149},
+    "BORSOD-ABAÚJ-ZEMPLÉN":   {"v":513539,"m":332098,"e":5202,"é":326896,"F":178881,"El":112571,"MH":19243,"MK":5707,"Ey":10494},
+    "BUDAPEST":               {"v":1274391,"m":959897,"e":10463,"é":949434,"F":387938,"El":465212,"MH":37459,"MK":36893,"Ey":21932},
+    "CSONGRÁD-CSANÁD":        {"v":324670,"m":228779,"e":3003,"é":225776,"F":106010,"El":91161,"MH":17181,"MK":4952,"Ey":6472},
+    "FEJÉR":                  {"v":340044,"m":242974,"e":2829,"é":240145,"F":130637,"El":82255,"MH":14896,"MK":7604,"Ey":4753},
+    "GYŐR-MOSON-SOPRON":      {"v":358942,"m":264610,"e":3268,"é":261342,"F":155905,"El":80997,"MH":15559,"MK":3355,"Ey":5526},
+    "HAJDÚ-BIHAR":            {"v":424034,"m":280418,"e":4148,"é":276270,"F":160213,"El":89122,"MH":14920,"MK":1681,"Ey":10334},
+    "HEVES":                  {"v":237737,"m":163980,"e":2226,"é":161754,"F":89444,"El":55370,"MH":11832,"MK":1400,"Ey":3708},
+    "JÁSZ-NAGYKUN-SZOLNOK":   {"v":297113,"m":195855,"e":2848,"é":193007,"F":106777,"El":67440,"MH":12219,"MK":2481,"Ey":4090},
+    "KOMÁROM-ESZTERGOM":      {"v":242615,"m":168223,"e":1927,"é":166296,"F":85000,"El":62609,"MH":9631,"MK":4371,"Ey":4685},
+    "NÓGRÁD":                 {"v":153974,"m":103022,"e":1569,"é":101453,"F":57944,"El":30189,"MH":9275,"MK":1976,"Ey":2069},
+    "PEST":                   {"v":1039628,"m":757679,"e":9089,"é":748590,"F":385178,"El":277424,"MH":42121,"MK":25170,"Ey":18697},
+    "SOMOGY":                 {"v":247256,"m":168503,"e":2602,"é":165901,"F":92638,"El":59311,"MH":6423,"MK":983,"Ey":6546},
+    "SZABOLCS-SZATMÁR-BEREG": {"v":440030,"m":287811,"e":4806,"é":283005,"F":172522,"El":84027,"MH":17006,"MK":1633,"Ey":7817},
+    "TOLNA":                  {"v":176842,"m":121580,"e":1915,"é":119665,"F":72106,"El":35922,"MH":7999,"MK":1042,"Ey":2596},
+    "VAS":                    {"v":202790,"m":151757,"e":1962,"é":149795,"F":89956,"El":46671,"MH":8030,"MK":2722,"Ey":2416},
+    "VESZPRÉM":               {"v":279789,"m":200859,"e":2378,"é":198481,"F":106372,"El":74096,"MH":9515,"MK":5213,"Ey":3285},
+    "ZALA":                   {"v":220475,"m":157766,"e":2198,"é":155568,"F":88038,"El":50920,"MH":9305,"MK":3752,"Ey":3553},
 }
+for d in COUNTY.values():
+    d["rp"]=round(d["m"]/d["v"]*100,1); d["ep"]=round(d["e"]/d["m"]*100,1)
+    d["fp"]=round(d["F"]/d["é"]*100,1); d["elp"]=round(d["El"]/d["é"]*100,1); d["mhp"]=round(d["MH"]/d["é"]*100,1)
 
-# Listás 2022 – Országos
-LISTAS_ORSZAGOS = {
-    "valasztopolgár": 8215304,
-    "megjelentek":    5717182,
-    "ervenytelen":    57065,
-    "érvényes":       5654860,
-    "részvétel_pct":  69.6,
-    "ervenytelen_pct": 1.0,
-}
-LISTAS_PÁRTOK = pd.DataFrame([
-    {"párt": "Fidesz-KDNP",    "szavazat": 3060706, "mandatum": 48, "szín": "#E97132"},
-    {"párt": "Ellenzék összefogás", "szavazat": 1947331, "mandatum": 38, "szín": "#156082"},
-    {"párt": "Mi Hazánk",      "szavazat": 332487,  "mandatum": 6,  "szín": "#196B24"},
-    {"párt": "MKKP",           "szavazat": 80844,   "mandatum": 0,  "szín": "#A02B93"},
-    {"párt": "Egyéb",          "szavazat": 233492,  "mandatum": 0,  "szín": "#8aaac0"},
-])
-LISTAS_PÁRTOK["pct"] = (LISTAS_PÁRTOK["szavazat"] / LISTAS_PÁRTOK["szavazat"].sum() * 100).round(1)
+BACS_OEVK = [
+    {"oevk":"BK/1 – Kecskemét I.",     "szh":"Kecskemét",        "v":69101,"m":47068,"e":566,"é":46462,"F":27420,"El":13464,"MH":3425,"MK":1691,"Ey":462, "ny":"Dr. Salacz László"},
+    {"oevk":"BK/2 – Kecskemét II.",    "szh":"Kecskemét",        "v":71933,"m":50963,"e":723,"é":50197,"F":26606,"El":17208,"MH":3512,"MK":2274,"Ey":597, "ny":"Dr. Szeberényi Gy.T."},
+    {"oevk":"BK/3 – Kalocsa",          "szh":"Kalocsa",          "v":65242,"m":45135,"e":550,"é":44540,"F":26592,"El":13464,"MH":2778,"MK":0,   "Ey":1706,"ny":"Font Sándor"},
+    {"oevk":"BK/4 – Kiskunfélegyháza", "szh":"Kiskunfélegyháza", "v":71615,"m":48039,"e":625,"é":47382,"F":29835,"El":11727,"MH":3427,"MK":1529,"Ey":864, "ny":"Lezsák Sándor"},
+    {"oevk":"BK/5 – Kiskunhalas",      "szh":"Kiskunhalas",      "v":68267,"m":43458,"e":586,"é":42827,"F":25763,"El":12218,"MH":4205,"MK":0,   "Ey":641, "ny":"Bányai Gábor"},
+    {"oevk":"BK/6 – Baja",            "szh":"Baja",             "v":64619,"m":42458,"e":529,"é":41871,"F":23976,"El":13697,"MH":3017,"MK":827, "Ey":354, "ny":"Zsigó Róbert"},
+]
+for r in BACS_OEVK:
+    r["rp"]=round(r["m"]/r["v"]*100,1); r["ep"]=round(r["e"]/r["m"]*100,1)
+    r["fp"]=round(r["F"]/r["é"]*100,1); r["elp"]=round(r["El"]/r["é"]*100,1); r["diff"]=r["F"]-r["El"]
 
-# KSH Bács02 vs Ország
-KSH_DEMOGR = {
-    "nepesseg": {"Bács02": 91100, "Ország": 9603634},
-    "18plus":   {"Bács02": 73848, "Ország": 7918836},
-    "ferfi":    {"Bács02": 44057, "Ország": 4620846},
-    "no":       {"Bács02": 47043, "Ország": 4982788},
-}
-KSH_KORCSOPORT = pd.DataFrame([
-    {"korcsoport": "0–14",   "Bács02": 14280, "Ország": 1393232},
-    {"korcsoport": "15–17",  "Bács02": 2972,  "Ország": 291566},
-    {"korcsoport": "18–24",  "Bács02": 6677,  "Ország": 703667},
-    {"korcsoport": "25–39",  "Bács02": 16750, "Ország": 1805868},
-    {"korcsoport": "40–59",  "Bács02": 27373, "Ország": 2864605},
-    {"korcsoport": "60–64",  "Bács02": 5345,  "Ország": 565253},
-    {"korcsoport": "65–79",  "Bács02": 13950, "Ország": 1545252},
-    {"korcsoport": "80+",    "Bács02": 3753,  "Ország": 434191},
-])
-for col in ["Bács02", "Ország"]:
-    KSH_KORCSOPORT[f"{col}_pct"] = (KSH_KORCSOPORT[col] / KSH_KORCSOPORT[col].sum() * 100).round(1)
+COUNTY_DF = pd.DataFrame([{"megye":k,**{
+    "valasztopolgar":d["v"],"megjelentek":d["m"],"ervenytelen":d["e"],"érvényes":d["é"],
+    "Fidesz-KDNP":d["F"],"Ellenzék":d["El"],"Mi Hazánk":d["MH"],"MKKP":d["MK"],"Egyéb":d["Ey"],
+    "reszvetel_pct":d["rp"],"ervenytelen_pct":d["ep"],"fidesz_pct":d["fp"],"ellenzek_pct":d["elp"],
+}} for k,d in COUNTY.items()])
+BACS_DF = pd.DataFrame(BACS_OEVK).rename(columns={"rp":"reszvetel_pct","ep":"ervenytelen_pct","fp":"fidesz_pct","elp":"ellenzek_pct","diff":"kulonbseg"})
 
-KSH_VEGZETTSEG = pd.DataFrame([
-    {"végzettség": "8 oszt. alatt",          "Bács02": 1483,  "Ország": 171559},
-    {"végzettség": "8 általános",            "Bács02": 12656, "Ország": 1467235},
-    {"végzettség": "Szakképesítés (érettségi nélkül)", "Bács02": 16225, "Ország": 1730141},
-    {"végzettség": "Érettségi",              "Bács02": 25057, "Ország": 2716185},
-    {"végzettség": "Diploma",                "Bács02": 18427, "Ország": 1833716},
-])
-for col in ["Bács02", "Ország"]:
-    KSH_VEGZETTSEG[f"{col}_pct"] = (KSH_VEGZETTSEG[col] / KSH_VEGZETTSEG[col].sum() * 100).round(1)
-
-KSH_AKTIVITAS = pd.DataFrame([
-    {"aktivitás": "Foglalkoztatott",  "Bács02": 46176, "Ország": 4707851},
-    {"aktivitás": "Munkanélküli",     "Bács02": 1856,  "Ország": 234986},
-    {"aktivitás": "Inaktív ellátott", "Bács02": 19035, "Ország": 2257357},
-    {"aktivitás": "Eltartott",        "Bács02": 6781,  "Ország": 718642},
-])
-for col in ["Bács02", "Ország"]:
-    KSH_AKTIVITAS[f"{col}_pct"] = (KSH_AKTIVITAS[col] / KSH_AKTIVITAS[col].sum() * 100).round(1)
-
-KSH_VALLASS = pd.DataFrame([
-    {"vallás": "Katolikus",            "Bács02": 24815, "Ország": 2481487},
-    {"vallás": "Református",           "Bács02": 6107,  "Ország": 799881},
-    {"vallás": "Evangélikus",          "Bács02": 709,   "Ország": 148965},
-    {"vallás": "Más keresztény",       "Bács02": 981,   "Ország": 117714},
-    {"vallás": "Más felekezet",        "Bács02": 225,   "Ország": 36699},
-    {"vallás": "Nem vallásos",         "Bács02": 9417,  "Ország": 1172298},
-    {"vallás": "Nem válaszolt",        "Bács02": 31543, "Ország": 3150983},
-])
-for col in ["Bács02", "Ország"]:
-    KSH_VALLASS[f"{col}_pct"] = (KSH_VALLASS[col] / KSH_VALLASS[col].sum() * 100).round(1)
-
-# Kutatási adatok – Bács02 (N=500) vs Ország (N=20014)
-SURVEY_LIBKONZ = pd.DataFrame([
-    {"skála": "1 – Liberális", "Bács02": 4.2,  "Ország": 10.4},
-    {"skála": "2",             "Bács02": 5.1,  "Ország": 6.2},
-    {"skála": "3",             "Bács02": 10.1, "Ország": 13.2},
-    {"skála": "4 – Közép",     "Bács02": 36.3, "Ország": 29.3},
-    {"skála": "5",             "Bács02": 14.9, "Ország": 11.6},
-    {"skála": "6",             "Bács02": 6.9,  "Ország": 7.3},
-    {"skála": "7 – Konzervatív","Bács02": 22.5, "Ország": 21.9},
-])
-SURVEY_BALJOBB = pd.DataFrame([
-    {"skála": "1 – Baloldali", "Bács02": 9.1,  "Ország": 11.2},
-    {"skála": "2",             "Bács02": 5.9,  "Ország": 3.3},
-    {"skála": "3",             "Bács02": 6.4,  "Ország": 11.0},
-    {"skála": "4 – Közép",     "Bács02": 34.3, "Ország": 30.7},
-    {"skála": "5",             "Bács02": 12.9, "Ország": 9.4},
-    {"skála": "6",             "Bács02": 7.8,  "Ország": 8.2},
-    {"skála": "7 – Jobboldali","Bács02": 23.6, "Ország": 26.2},
-])
-
-# Pártpreferenciák (jelenlegi mérés)
+# Kutatási adatok
 PARTPREF_BACS = pd.DataFrame([
-    {"párt": "TISZA",        "pct": 38.4, "szín": "#0F9ED5"},
-    {"párt": "Fidesz-KDNP", "pct": 36.0, "szín": "#E97132"},
-    {"párt": "Mi Hazánk",   "pct": 8.0,  "szín": "#196B24"},
-    {"párt": "DK",          "pct": 2.2,  "szín": "#2F7EC7"},
-    {"párt": "MKKP",        "pct": 0.7,  "szín": "#A02B93"},
-    {"párt": "Bizonytalan", "pct": 6.9,  "szín": "#888888"},
-    {"párt": "Nem menne el","pct": 0.8,  "szín": "#cccccc"},
-    {"párt": "Nem mondja meg","pct": 6.5,"szín": "#aaaaaa"},
+    {"párt":"TISZA","pct":38.4,"szín":C["sky"]},{"párt":"Fidesz-KDNP","pct":36.0,"szín":C["orange"]},
+    {"párt":"Mi Hazánk","pct":8.0,"szín":C["green"]},{"párt":"DK","pct":2.2,"szín":"#2F7EC7"},
+    {"párt":"Bizonytalan","pct":6.9,"szín":"#999"},{"párt":"Egyéb/NM","pct":8.5,"szín":C["gray_mid"]},
 ])
 PARTPREF_ORSZAG = pd.DataFrame([
-    {"párt": "TISZA",         "pct": 39.6, "szín": "#0F9ED5"},
-    {"párt": "Fidesz-KDNP",  "pct": 36.2, "szín": "#E97132"},
-    {"párt": "Mi Hazánk",    "pct": 6.0,  "szín": "#196B24"},
-    {"párt": "DK",           "pct": 2.6,  "szín": "#2F7EC7"},
-    {"párt": "MKKP",         "pct": 2.5,  "szín": "#A02B93"},
-    {"párt": "Bizonytalan",  "pct": 5.8,  "szín": "#888888"},
-    {"párt": "Nem menne el", "pct": 1.5,  "szín": "#cccccc"},
-    {"párt": "Nem mondja meg","pct": 4.6, "szín": "#aaaaaa"},
+    {"párt":"TISZA","pct":39.6,"szín":C["sky"]},{"párt":"Fidesz-KDNP","pct":36.2,"szín":C["orange"]},
+    {"párt":"Mi Hazánk","pct":6.0,"szín":C["green"]},{"párt":"DK","pct":2.6,"szín":"#2F7EC7"},
+    {"párt":"Bizonytalan","pct":5.8,"szín":"#999"},{"párt":"Egyéb/NM","pct":9.8,"szín":C["gray_mid"]},
+])
+SZAV_2022 = pd.DataFrame([
+    {"párt":"Fidesz-KDNP","pct":43.5,"szín":C["orange"]},{"párt":"Ellenzék össze.","pct":28.5,"szín":C["blue"]},
+    {"párt":"Mi Hazánk","pct":5.6,"szín":C["green"]},{"párt":"MKKP","pct":3.6,"szín":C["purple"]},
+    {"párt":"Nem szavazott","pct":4.0,"szín":C["gray_mid"]},{"párt":"Nem mondja meg","pct":13.0,"szín":"#ccc"},{"párt":"Egyéb","pct":1.8,"szín":"#aaa"},
 ])
 
-# 2022-es visszamenőleges szavazat (survey)
-SZAVAZAT_2022_BACS = pd.DataFrame([
-    {"párt": "Fidesz-KDNP",     "pct": 43.5, "szín": "#E97132"},
-    {"párt": "Ellenzéki összef.","pct": 28.5, "szín": "#156082"},
-    {"párt": "Mi Hazánk",       "pct": 5.6,  "szín": "#196B24"},
-    {"párt": "MKKP",            "pct": 3.6,  "szín": "#A02B93"},
-    {"párt": "Egyéb",           "pct": 1.8,  "szín": "#8aaac0"},
-    {"párt": "Nem szavazott",   "pct": 4.0,  "szín": "#dddddd"},
-    {"párt": "Nem mondja meg",  "pct": 13.0, "szín": "#aaaaaa"},
-])
+MEGYE_COORDS = {
+    "BUDAPEST":(47.48,19.04),"PEST":(47.44,19.55),"FEJÉR":(47.12,18.44),"KOMÁROM-ESZTERGOM":(47.57,18.29),
+    "VESZPRÉM":(47.10,17.91),"GYŐR-MOSON-SOPRON":(47.65,17.13),"VAS":(47.23,16.60),"ZALA":(46.73,16.82),
+    "SOMOGY":(46.55,17.65),"TOLNA":(46.47,18.56),"BARANYA":(46.07,18.22),"BÁCS-KISKUN":(46.58,19.49),
+    "CSONGRÁD-CSANÁD":(46.26,20.15),"BÉKÉS":(46.73,21.10),"HAJDÚ-BIHAR":(47.53,21.63),
+    "JÁSZ-NAGYKUN-SZOLNOK":(47.40,20.51),"HEVES":(47.84,20.16),"NÓGRÁD":(48.02,19.52),
+    "BORSOD-ABAÚJ-ZEMPLÉN":(48.20,20.65),"SZABOLCS-SZATMÁR-BEREG":(48.05,22.01),
+}
 
-# Gazdasági percepciók (Bács02, N=464)
-GAZD_IRANY = pd.DataFrame([
-    {"vélemény": "Határozottan rossz irányba", "pct": 38.6, "szín": "#c0392b"},
-    {"vélemény": "Inkább rossz irányba",       "pct": 26.3, "szín": "#e74c3c"},
-    {"vélemény": "Is-is",                      "pct": 12.5, "szín": "#8aaac0"},
-    {"vélemény": "Inkább jó irányba",          "pct": 18.3, "szín": "#196B24"},
-    {"vélemény": "Határozottan jó irányba",    "pct": 3.4,  "szín": "#1abc9c"},
-    {"vélemény": "NT/NV",                      "pct": 0.9,  "szín": "#cccccc"},
-])
-GAZD_MULT = pd.DataFrame([
-    {"változás": "Jelentősen romlott",   "pct": 43.5, "szín": "#c0392b"},
-    {"változás": "Kismértékben romlott", "pct": 24.1, "szín": "#e74c3c"},
-    {"változás": "Nem változott",        "pct": 18.1, "szín": "#8aaac0"},
-    {"változás": "Kismértékben javult",  "pct": 9.7,  "szín": "#196B24"},
-    {"változás": "Jelentősen javult",    "pct": 3.0,  "szín": "#1abc9c"},
-    {"változás": "NT/NV",                "pct": 1.5,  "szín": "#cccccc"},
-])
-HAZTARTAS_ANYAG = pd.DataFrame([
-    {"helyzet": "Gondok nélkül",         "pct": 7.3,  "szín": "#1abc9c"},
-    {"helyzet": "Jól kijövünk",          "pct": 35.3, "szín": "#196B24"},
-    {"helyzet": "Éppen kijövünk",        "pct": 43.8, "szín": "#8aaac0"},
-    {"helyzet": "Anyagi gondok",         "pct": 11.4, "szín": "#e74c3c"},
-    {"helyzet": "Nélkülözünk",           "pct": 1.9,  "szín": "#c0392b"},
-    {"helyzet": "NT/NV",                 "pct": 0.2,  "szín": "#cccccc"},
-])
-INFLACIO_ERZEKELES = pd.DataFrame([
-    {"válasz": "Egyáltalán nem",   "pct": 2.8,  "szín": "#1abc9c"},
-    {"válasz": "Inkább nem",       "pct": 7.3,  "szín": "#196B24"},
-    {"válasz": "Inkább igen",      "pct": 31.7, "szín": "#E97132"},
-    {"válasz": "Teljesen igen",    "pct": 57.5, "szín": "#c0392b"},
-    {"válasz": "NT/NV",            "pct": 0.6,  "szín": "#cccccc"},
-])
-MEGTAKARITAS = pd.DataFrame([
-    {"válasz": "Van megtakarítása", "pct": 42.7, "szín": "#156082"},
-    {"válasz": "Nincs",             "pct": 52.2, "szín": "#E97132"},
-    {"válasz": "NT/NV",             "pct": 5.2,  "szín": "#cccccc"},
-])
-
-# ─────────────────────────────────────────────
+# ═══════════════════════════════════════════════════════
 # SEGÉDFÜGGVÉNYEK
-# ─────────────────────────────────────────────
+# ═══════════════════════════════════════════════════════
+def fmt(n):
+    try: return f"{int(n):,}".replace(",","\u202f")
+    except: return str(n)
 
-def fmt_num(n):
-    """Szám formázás ezres elválasztóval"""
-    if isinstance(n, float):
-        return f"{n:,.0f}".replace(",", " ")
-    return f"{int(n):,}".replace(",", " ")
+def kpi(label, value, pct=None, note=None, icon=""):
+    pct_h  = f'<div class="kpi-pct">{pct}</div>' if pct else ""
+    note_h = f'<div class="kpi-note">{note}</div>' if note else ""
+    val_h  = f'<div class="kpi-value">{value}</div>' if value and value!="N/A" else f'<div class="kpi-na">N/A</div>'
+    return f"""<div class="kpi-wrap"><div class="kpi-label">{icon} {label}</div>{val_h}{pct_h}{note_h}</div>"""
 
-def kpi_card(label, value, sub="", note=""):
-    return f"""
-    <div class="kpi-card">
-        <div class="kpi-label">{label}</div>
-        <div class="kpi-value">{value}</div>
-        {"<div class='kpi-sub'>" + sub + "</div>" if sub else ""}
-        {"<div class='kpi-note'>" + note + "</div>" if note else ""}
-    </div>"""
+def info(text, icon="ℹ️"):
+    st.markdown(f'<div class="info-bar">{icon} {text}</div>', unsafe_allow_html=True)
 
-def section_header(title, subtitle=""):
-    return f"""
-    <div class="section-header">
-        <h2>{title}</h2>
-        {"<p>" + subtitle + "</p>" if subtitle else ""}
-    </div>"""
-
-def info_box(text):
-    return f'<div class="info-box">ℹ️ {text}</div>'
-
-def diverging_bar(df, col_left, col_right, label_col, title, colors=("#E97132","#156082")):
-    """Divergáló sávdiagram bal/jobb összehasonlításhoz"""
-    fig = go.Figure()
-    fig.add_trace(go.Bar(
-        y=df[label_col], x=-df[col_left],
-        orientation="h", name=col_left,
-        marker_color=colors[0],
-        text=[f"{v:.1f}%" for v in df[col_left]],
-        textposition="inside", insidetextanchor="end",
-    ))
-    fig.add_trace(go.Bar(
-        y=df[label_col], x=df[col_right],
-        orientation="h", name=col_right,
-        marker_color=colors[1],
-        text=[f"{v:.1f}%" for v in df[col_right]],
-        textposition="inside", insidetextanchor="start",
-    ))
-    fig.update_layout(
-        **PLOTLY_LAYOUT,
-        title=dict(text=title, font_size=14, x=0, font_color="#0E2841"),
-        barmode="relative",
-        xaxis=dict(showticklabels=False, zeroline=True, zerolinewidth=2, zerolinecolor="#0E2841"),
-        yaxis=dict(showgrid=False),
-        legend=dict(orientation="h", yanchor="bottom", y=1.02),
-        height=300,
-    )
-    return fig
-
-# ─────────────────────────────────────────────
-# SIDEBAR – NAVIGÁCIÓ + SZŰRŐK
-# ─────────────────────────────────────────────
-
-with st.sidebar:
-    st.markdown("### 🗺️ POLITIKAI HŐTÉRKÉP")
-    st.markdown("---")
-
-    # Területi szűrő
-    st.markdown("**📍 Területi szűrő**")
-    terulet_szint = st.selectbox(
-        "Szint", ["Bács-Kiskun megye", "BK/1 – Kecskemét I.", "BK/2 – Kecskemét II.",
-                  "BK/3 – Kalocsa", "BK/4 – Kiskunfélegyháza", "BK/5 – Kiskunhalas",
-                  "BK/6 – Baja"],
-        label_visibility="collapsed"
-    )
-
-    # Év szűrő
-    st.markdown("**📅 Választás éve**")
-    ev = st.selectbox("Év", ["2022"], label_visibility="collapsed")
-    st.markdown("*További évek hamarosan*", help="2010, 2014, 2018 adatai folyamatban")
-
-    st.markdown("---")
-
-    # Oldalnavigáció
-    st.markdown("**📑 Oldalak**")
-    page = st.radio(
-        "Oldal",
-        [
-            "🏠  Főoldal",
-            "🗳️  Választástörténet",
-            "👥  KSH Szociológia",
-            "📊  Saját Kutatások",
-            "🔭  Politikai Közvélemény",
-            "📱  Social Media",
-            "💰  Gazdasági Adatok",
-        ],
-        label_visibility="collapsed"
-    )
-
-    st.markdown("---")
-    st.markdown(
-        "<div style='font-size:10px;color:#8aaac0;'>Forrás: NVI 2022, KSH 2022,<br>Századvég nagykutatás (N=500 Bács02, N=20014 Ország)</div>",
-        unsafe_allow_html=True
-    )
-
-# ─────────────────────────────────────────────
-# AKTÍV TERÜLETI ADAT
-# ─────────────────────────────────────────────
-
-def get_active_data():
-    if terulet_szint == "Bács-Kiskun megye":
-        row = BACS_AGG.copy()
-        row["cim"] = "Bács-Kiskun megye"
-        row["fidesz_pct"] = round(BACS_AGG["Fidesz-KDNP"] / BACS_AGG["érvényes"] * 100, 1)
-        row["ellenzek_pct"] = round(BACS_AGG["Ellenzék/TISZA"] / BACS_AGG["érvényes"] * 100, 1)
-        return row
+def get_active(szint, terulet):
+    if szint == "Országos":
+        agg = {k: sum(COUNTY[m][k] for m in COUNTY) for k in ["v","m","e","é","F","El","MH","MK","Ey"]}
+        agg["rp"]=round(agg["m"]/agg["v"]*100,1); agg["ep"]=round(agg["e"]/agg["m"]*100,1)
+        agg["fp"]=round(agg["F"]/agg["é"]*100,1); agg["elp"]=round(agg["El"]/agg["é"]*100,1)
+        return {"nev":"Magyarország – Összesített","valasztopolgar":agg["v"],"megjelentek":agg["m"],
+                "ervenytelen":agg["e"],"érvényes":agg["é"],"Fidesz-KDNP":agg["F"],"Ellenzék":agg["El"],
+                "Mi Hazánk":agg["MH"],"MKKP":agg["MK"],"Egyéb":agg["Ey"],
+                "reszvetel_pct":agg["rp"],"ervenytelen_pct":agg["ep"],"fidesz_pct":agg["fp"],
+                "ksh_nep":KSH_ORSZAG["nep"],"ksh_18plus":KSH_ORSZAG["18plus"]}
+    elif szint == "Megye":
+        d = COUNTY.get(terulet,{}); 
+        if not d: return get_active("Országos",None)
+        return {"nev":terulet.title(),"valasztopolgar":d["v"],"megjelentek":d["m"],"ervenytelen":d["e"],
+                "érvényes":d["é"],"Fidesz-KDNP":d["F"],"Ellenzék":d["El"],"Mi Hazánk":d["MH"],
+                "MKKP":d["MK"],"Egyéb":d["Ey"],"reszvetel_pct":d["rp"],"ervenytelen_pct":d["ep"],
+                "fidesz_pct":d["fp"],"ksh_nep":None,"ksh_18plus":None}
     else:
-        r = BACS_OEVK[BACS_OEVK["oevk"] == terulet_szint].iloc[0].to_dict()
-        r["cim"] = terulet_szint
-        return r
-
-active = get_active_data()
-
-# ─────────────────────────────────────────────
-# FŐOLDAL
-# ─────────────────────────────────────────────
-
-def render_fooldal():
-    st.markdown('<div class="page-title">🗺️ Politikai Hőtérkép – Főoldal</div>', unsafe_allow_html=True)
-    st.markdown(f"Jelenleg megtekintett terület: **{active['cim']}** &nbsp;|&nbsp; Választás éve: **{ev}**", unsafe_allow_html=True)
-
-    # KPI sor
-    kols = st.columns(5)
-    pop = KSH_DEMOGR["nepesseg"]["Bács02"] if "Kiskun" in terulet_szint or terulet_szint == "Bács-Kiskun megye" else "–"
-    szavkep = KSH_DEMOGR["18plus"]["Bács02"] if "Kiskun" in terulet_szint or terulet_szint == "Bács-Kiskun megye" else "–"
-    szavkep_pct = round(KSH_DEMOGR["18plus"]["Bács02"] / KSH_DEMOGR["nepesseg"]["Bács02"] * 100, 1) if isinstance(szavkep, int) else "–"
-
-    val = active.get("valasztopolgár", 0)
-    meg = active.get("megjelentek", 0)
-    erv = active.get("ervenytelen", 0)
-    res = active.get("részvétel_pct", 0)
-    erv_pct = active.get("ervenytelen_pct", 0)
-
-    kols[0].markdown(kpi_card("Össznépesség (KSH)", fmt_num(pop) if isinstance(pop, int) else "N/A", "Bács-Kiskun VK", "Forrás: KSH Népszámlálás 2022"), unsafe_allow_html=True)
-    kols[1].markdown(kpi_card("Szavazóképes korú", fmt_num(szavkep) if isinstance(szavkep, int) else "N/A",
-                               f"{szavkep_pct}% az össznépességből" if isinstance(szavkep_pct, float) else "", "18+ lakosság"), unsafe_allow_html=True)
-    kols[2].markdown(kpi_card("Nyilvántartott választópolgár", fmt_num(val), f"Szűrt terület: {active['cim']}", "NVI 2022 választói névjegyzék"), unsafe_allow_html=True)
-    kols[3].markdown(kpi_card("Tényleges szavazók", fmt_num(meg), f"{res}% részvétel", "A névjegyzékbe vettekhez képest"), unsafe_allow_html=True)
-    kols[4].markdown(kpi_card("Érvénytelen szavazatok", fmt_num(erv), f"{erv_pct}% az urnából", "Leadott szavazatokhoz képest"), unsafe_allow_html=True)
-
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    # Navigációs kártyák
-    st.markdown(section_header("Elemzési modulok", "Válasszon aloldalt a részletes elemzéshez – baloldali menüből is elérhető"), unsafe_allow_html=True)
-
-    nav_data = [
-        ("🗳️", "Választástörténet", "2022 eredmények OEVK-nként, jelölt adatok, arányok, rangsorok"),
-        ("👥", "KSH Szociológia", "Demográfia, korcsoport, végzettség, vallás, gazd. aktivitás"),
-        ("📊", "Saját Kutatások", "Ideológiai profil, Big Five, értékek, médiafogyasztás"),
-        ("🔭", "Politikai Közvélemény", "Pártpreferenciák, szavazói átváltás, közhangulat"),
-        ("📱", "Social Media", "Helyi aktivitás, témák, komment-klasszifikáció (hamarosan)"),
-        ("💰", "Gazdasági Adatok", "Percepciók, megélhetés, megtakarítás, inflációérzékelés"),
-    ]
-    cols_nav = st.columns(3)
-    for i, (icon, title, desc) in enumerate(nav_data):
-        cols_nav[i % 3].markdown(
-            f'<div class="nav-card"><div class="nav-icon">{icon}</div><div class="nav-title">{title}</div><div class="nav-desc">{desc}</div></div>',
-            unsafe_allow_html=True
-        )
-
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    # 2022 eredmény összefoglaló
-    st.markdown(section_header("2022 választási eredmény – összefoglaló", f"{active['cim']} – egyéni választókerületi eredmények"), unsafe_allow_html=True)
-
-    col_l, col_r = st.columns([3, 2])
-
-    with col_l:
-        # OEVK-nkénti stacked bar
-        melt_df = BACS_OEVK.melt(
-            id_vars=["oevk"], value_vars=["Fidesz-KDNP", "Ellenzék/TISZA", "Mi Hazánk", "MKKP", "Egyéb"],
-            var_name="párt", value_name="szavazat"
-        )
-        melt_df["pct"] = melt_df.apply(
-            lambda row: row["szavazat"] / BACS_OEVK.loc[BACS_OEVK["oevk"] == row["oevk"], "érvényes"].values[0] * 100, axis=1
-        ).round(1)
-        fig_stack = px.bar(
-            melt_df, x="pct", y="oevk", color="párt", orientation="h",
-            color_discrete_map={k: COLORS[k] for k in COLORS},
-            text="pct",
-            title="Szavazatarányok OEVK-nként (%)",
-            labels={"pct": "Szavazatarány (%)", "oevk": ""},
-        )
-        fig_stack.update_traces(texttemplate="%{text:.0f}%", textposition="inside")
-        fig_stack.update_layout(**PLOTLY_LAYOUT, barmode="stack", height=320,
-                                 legend=dict(orientation="h", y=-0.25, font_size=11),
-                                 xaxis=dict(range=[0, 101]))
-        st.plotly_chart(fig_stack, use_container_width=True)
-
-    with col_r:
-        # Részvételi arányok
-        fig_res = px.bar(
-            BACS_OEVK, x="részvétel_pct", y="oevk", orientation="h",
-            color="részvétel_pct",
-            color_continuous_scale=["#E8E8E8", "#156082", "#0E2841"],
-            title="Részvételi arány OEVK-nként (%)",
-            labels={"részvétel_pct": "Részvétel (%)", "oevk": ""},
-            text="részvétel_pct",
-        )
-        fig_res.update_traces(texttemplate="%{text:.1f}%", textposition="outside")
-        fig_res.update_layout(**PLOTLY_LAYOUT, showlegend=False, height=320,
-                               coloraxis_showscale=False,
-                               xaxis=dict(range=[0, 80]))
-        st.plotly_chart(fig_res, use_container_width=True)
-
-    # Nyertes jelöltek táblázat
-    st.markdown("**Nyertes jelöltek 2022 – Bács-Kiskun**")
-    nyertes_df = BACS_OEVK[["oevk", "nyertes", "fidesz_pct", "ellenZek_pct", "mihazank_pct", "részvétel_pct", "kulonbseg"]].copy()
-    nyertes_df.columns = ["Választókerület", "Nyertes jelölt", "Fidesz %", "Ellenzék %", "Mi Hazánk %", "Részvétel %", "Különbség (fő)"]
-    st.dataframe(nyertes_df, use_container_width=True, hide_index=True)
-
-# ─────────────────────────────────────────────
-# VÁLASZTÁSTÖRTÉNET
-# ─────────────────────────────────────────────
-
-def render_valasztas():
-    st.markdown('<div class="page-title">🗳️ Választástörténet</div>', unsafe_allow_html=True)
-    st.markdown(info_box("Jelenleg a 2022-es országgyűlési választások adatai érhetők el. Korábbi évek (2010, 2014, 2018) adatai hamarosan hozzáadásra kerülnek."), unsafe_allow_html=True)
-
-    tab1, tab2, tab3 = st.tabs(["📊 OEVK eredmények", "🇭🇺 Országos listás", "🏆 Jelölt-összehasonlítás"])
-
-    with tab1:
-        st.markdown(section_header("Bács-Kiskun – Egyéni OEVK eredmények 2022", "6 választókerület részletes adatai"), unsafe_allow_html=True)
-
-        sel_oevk = st.selectbox("Válasszon OEVK-t a részletekhez:", BACS_OEVK["oevk"].tolist(), key="oevk_sel")
-        row = BACS_OEVK[BACS_OEVK["oevk"] == sel_oevk].iloc[0]
-
-        c1, c2, c3, c4 = st.columns(4)
-        c1.markdown(kpi_card("Választópolgár", fmt_num(row["valasztopolgár"]), "Névjegyzékben"), unsafe_allow_html=True)
-        c2.markdown(kpi_card("Megjelentek", fmt_num(row["megjelentek"]), f"{row['részvétel_pct']}% részvétel"), unsafe_allow_html=True)
-        c3.markdown(kpi_card("Érvényes szavazat", fmt_num(row["érvényes"]), "Feldolgozott szavazatok"), unsafe_allow_html=True)
-        c4.markdown(kpi_card("Érvénytelen", fmt_num(row["ervenytelen"]), f"{row['ervenytelen_pct']}% arány"), unsafe_allow_html=True)
-
-        st.markdown("<br>", unsafe_allow_html=True)
-
-        col_a, col_b = st.columns([2, 1])
-        with col_a:
-            jeloltek = pd.DataFrame([
-                {"jelölt": row["nyertes"],              "párt": "Fidesz-KDNP",     "szavazat": row["Fidesz-KDNP"],     "szín": "#E97132", "nyertes": True},
-                {"jelölt": "Ellenzéki összefogás jel.", "párt": "Ellenzék/TISZA",  "szavazat": row["Ellenzék/TISZA"],  "szín": "#156082", "nyertes": False},
-                {"jelölt": "Mi Hazánk jelölt",          "párt": "Mi Hazánk",       "szavazat": row["Mi Hazánk"],       "szín": "#196B24", "nyertes": False},
-                {"jelölt": "MKKP jelölt",               "párt": "MKKP",            "szavazat": row["MKKP"],            "szín": "#A02B93", "nyertes": False},
-                {"jelölt": "Egyéb",                     "párt": "Egyéb",           "szavazat": row["Egyéb"],           "szín": "#8aaac0", "nyertes": False},
-            ])
-            jeloltek["pct"] = (jeloltek["szavazat"] / row["érvényes"] * 100).round(1)
-            jeloltek = jeloltek[jeloltek["szavazat"] > 0].sort_values("szavazat", ascending=False)
-
-            fig_jel = px.bar(
-                jeloltek, x="párt", y="pct", color="párt",
-                color_discrete_map={r["párt"]: r["szín"] for _, r in jeloltek.iterrows()},
-                title=f"{sel_oevk} – Eredmény (%)",
-                text="pct",
-            )
-            fig_jel.update_traces(texttemplate="%{text:.1f}%", textposition="outside")
-            fig_jel.update_layout(**PLOTLY_LAYOUT, showlegend=False, height=300,
-                                   yaxis=dict(title="Szavazatarány (%)"))
-            st.plotly_chart(fig_jel, use_container_width=True)
-
-        with col_b:
-            st.markdown("**Szavazatszámok**")
-            disp = jeloltek[["párt", "szavazat", "pct"]].copy()
-            disp.columns = ["Párt", "Szavazat (fő)", "%"]
-            st.dataframe(disp, use_container_width=True, hide_index=True)
-            st.markdown(f"""
-            <br><div class='info-box'>
-            🏆 <strong>Nyertes:</strong> {row['nyertes']}<br>
-            <span class='badge-fidesz'>Fidesz-KDNP</span><br>
-            Különbség: <strong>{fmt_num(row['kulonbseg'])} szavazat</strong>
-            </div>""", unsafe_allow_html=True)
-
-        st.markdown("---")
-        st.markdown("**Összes OEVK összehasonlítása**")
-        fig_all = px.scatter(
-            BACS_OEVK, x="fidesz_pct", y="részvétel_pct",
-            size="valasztopolgár", color="ellenZek_pct",
-            color_continuous_scale=["#E97132", "#E8E8E8", "#156082"],
-            hover_name="oevk",
-            hover_data={"fidesz_pct": ":.1f", "ellenZek_pct": ":.1f", "részvétel_pct": ":.1f", "valasztopolgár": ":,"},
-            title="Fidesz % vs Részvétel % – buborék mérete: választópolgárok száma",
-            labels={"fidesz_pct": "Fidesz-KDNP %", "részvétel_pct": "Részvétel %", "ellenZek_pct": "Ellenzék %"},
-        )
-        fig_all.update_layout(**PLOTLY_LAYOUT, height=380)
-        st.plotly_chart(fig_all, use_container_width=True)
-
-    with tab2:
-        st.markdown(section_header("Országos listás eredmények 2022", "Országgyűlési választás – pártlistás szavazatok"), unsafe_allow_html=True)
-
-        c1, c2, c3, c4 = st.columns(4)
-        c1.markdown(kpi_card("Választópolgár (orsz.)", fmt_num(LISTAS_ORSZAGOS["valasztopolgár"]), "Teljes Magyarország"), unsafe_allow_html=True)
-        c2.markdown(kpi_card("Megjelentek", fmt_num(LISTAS_ORSZAGOS["megjelentek"]), f"{LISTAS_ORSZAGOS['részvétel_pct']}% részvétel"), unsafe_allow_html=True)
-        c3.markdown(kpi_card("Érvényes listás", fmt_num(LISTAS_ORSZAGOS["érvényes"]), "Feldolgozott szavazat"), unsafe_allow_html=True)
-        c4.markdown(kpi_card("Érvénytelen", fmt_num(LISTAS_ORSZAGOS["ervenytelen"]), f"{LISTAS_ORSZAGOS['ervenytelen_pct']}% arány"), unsafe_allow_html=True)
-
-        st.markdown("<br>", unsafe_allow_html=True)
-
-        cl, cr = st.columns(2)
-        with cl:
-            fig_lst = px.bar(
-                LISTAS_PÁRTOK.sort_values("szavazat", ascending=False),
-                x="párt", y="pct", color="párt",
-                color_discrete_map={r["párt"]: r["szín"] for _, r in LISTAS_PÁRTOK.iterrows()},
-                title="Listás szavazatarányok 2022 (%)",
-                text="pct",
-            )
-            fig_lst.update_traces(texttemplate="%{text:.1f}%", textposition="outside")
-            fig_lst.update_layout(**PLOTLY_LAYOUT, showlegend=False, height=350)
-            st.plotly_chart(fig_lst, use_container_width=True)
-
-        with cr:
-            fig_mand = px.pie(
-                LISTAS_PÁRTOK[LISTAS_PÁRTOK["mandatum"] > 0],
-                values="mandatum", names="párt",
-                color="párt",
-                color_discrete_map={r["párt"]: r["szín"] for _, r in LISTAS_PÁRTOK.iterrows()},
-                title="Mandátumok megoszlása (92 listás)",
-                hole=0.4,
-            )
-            fig_mand.update_layout(**PLOTLY_LAYOUT, height=350)
-            st.plotly_chart(fig_mand, use_container_width=True)
-
-    with tab3:
-        st.markdown(section_header("Jelölt-összehasonlítás", "Bács-Kiskun OEVK-k egymás mellett"), unsafe_allow_html=True)
-        comp_df = BACS_OEVK[["oevk", "nyertes", "fidesz_pct", "ellenZek_pct", "mihazank_pct", "részvétel_pct", "kulonbseg", "valasztopolgár"]].copy()
-        comp_df["Fidesz fölény"] = comp_df["fidesz_pct"] - comp_df["ellenZek_pct"]
-        comp_df = comp_df.rename(columns={
-            "oevk": "OEVK", "nyertes": "Nyertes", "fidesz_pct": "Fidesz %",
-            "ellenZek_pct": "Ellenzék %", "mihazank_pct": "Mi Hazánk %",
-            "részvétel_pct": "Részvétel %", "kulonbseg": "Különbség (fő)", "valasztopolgár": "Választópolgár"
-        })
-        st.dataframe(
-            comp_df.style.background_gradient(subset=["Fidesz %"], cmap="Oranges")
-                         .background_gradient(subset=["Ellenzék %"], cmap="Blues")
-                         .background_gradient(subset=["Részvétel %"], cmap="Greys"),
-            use_container_width=True, hide_index=True
-        )
-
-        fig_rank = px.bar(
-            BACS_OEVK.sort_values("fidesz_pct"),
-            x="fidesz_pct", y="oevk", orientation="h",
-            color="fidesz_pct",
-            color_continuous_scale=["#f5cba7", "#E97132", "#a04000"],
-            title="Fidesz-KDNP szavazatarány szerinti rangsor (Bács-Kiskun, 2022)",
-            text="fidesz_pct",
-        )
-        fig_rank.update_traces(texttemplate="%{text:.1f}%", textposition="outside")
-        fig_rank.update_layout(**PLOTLY_LAYOUT, showlegend=False, height=300,
-                                coloraxis_showscale=False)
-        st.plotly_chart(fig_rank, use_container_width=True)
-
-# ─────────────────────────────────────────────
-# KSH SZOCIOLÓGIA
-# ─────────────────────────────────────────────
-
-def render_ksh():
-    st.markdown('<div class="page-title">👥 KSH Szociológia</div>', unsafe_allow_html=True)
-    st.markdown(info_box("Bács02 választókerület KSH 2022 Népszámlálás adatai, összehasonlítva az országos értékekkel."), unsafe_allow_html=True)
-
-    # Fejléc KPI-ok
-    c1, c2, c3, c4 = st.columns(4)
-    c1.markdown(kpi_card("Bács02 Népesség", fmt_num(91100), "KSH 2022 Népszámlálás"), unsafe_allow_html=True)
-    c2.markdown(kpi_card("18+ korú lakos", fmt_num(73848), f"{round(73848/91100*100,1)}% az össznépességből"), unsafe_allow_html=True)
-    c3.markdown(kpi_card("Nők aránya", "51,6%", f"{fmt_num(47043)} fő"), unsafe_allow_html=True)
-    c4.markdown(kpi_card("Roma nemzetiség", f"{round(582/91100*100,2)}%", f"{fmt_num(582)} fő"), unsafe_allow_html=True)
-
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    tab1, tab2, tab3, tab4 = st.tabs(["👶 Korcsoport", "🎓 Végzettség", "💼 Aktivitás", "⛪ Vallás"])
-
-    with tab1:
-        col_l, col_r = st.columns(2)
-        with col_l:
-            fig_kor_b = px.pie(
-                KSH_KORCSOPORT, values="Bács02", names="korcsoport",
-                title="Korcsoport megoszlás – Bács02",
-                color_discrete_sequence=["#0E2841","#156082","#0F9ED5","#E97132","#E8E8E8","#196B24","#A02B93","#8aaac0"],
-                hole=0.35,
-            )
-            fig_kor_b.update_layout(**PLOTLY_LAYOUT, height=320)
-            st.plotly_chart(fig_kor_b, use_container_width=True)
-        with col_r:
-            fig_kor_o = px.pie(
-                KSH_KORCSOPORT, values="Ország", names="korcsoport",
-                title="Korcsoport megoszlás – Magyarország",
-                color_discrete_sequence=["#0E2841","#156082","#0F9ED5","#E97132","#E8E8E8","#196B24","#A02B93","#8aaac0"],
-                hole=0.35,
-            )
-            fig_kor_o.update_layout(**PLOTLY_LAYOUT, height=320)
-            st.plotly_chart(fig_kor_o, use_container_width=True)
-
-        fig_kor_comp = go.Figure()
-        fig_kor_comp.add_trace(go.Bar(name="Bács02",  x=KSH_KORCSOPORT["korcsoport"], y=KSH_KORCSOPORT["Bács02_pct"], marker_color="#E97132"))
-        fig_kor_comp.add_trace(go.Bar(name="Ország",  x=KSH_KORCSOPORT["korcsoport"], y=KSH_KORCSOPORT["Ország_pct"], marker_color="#156082"))
-        fig_kor_comp.update_layout(**PLOTLY_LAYOUT, barmode="group", title="Korcsoport összehasonlítás (%)", height=280,
-                                    yaxis_title="%", legend=dict(orientation="h", y=1.1))
-        st.plotly_chart(fig_kor_comp, use_container_width=True)
-
-    with tab2:
-        fig_veg = go.Figure()
-        fig_veg.add_trace(go.Bar(name="Bács02", x=KSH_VEGZETTSEG["végzettség"], y=KSH_VEGZETTSEG["Bács02_pct"], marker_color="#E97132"))
-        fig_veg.add_trace(go.Bar(name="Ország", x=KSH_VEGZETTSEG["végzettség"], y=KSH_VEGZETTSEG["Ország_pct"], marker_color="#156082"))
-        fig_veg.update_layout(**PLOTLY_LAYOUT, barmode="group", title="Legmagasabb befejezett iskolai végzettség (%)", height=360,
-                               yaxis_title="%", legend=dict(orientation="h", y=1.08))
-        st.plotly_chart(fig_veg, use_container_width=True)
-
-        c1, c2 = st.columns(2)
-        with c1:
-            dip_b = round(KSH_VEGZETTSEG.loc[KSH_VEGZETTSEG["végzettség"]=="Diploma","Bács02_pct"].values[0], 1)
-            dip_o = round(KSH_VEGZETTSEG.loc[KSH_VEGZETTSEG["végzettség"]=="Diploma","Ország_pct"].values[0], 1)
-            st.markdown(kpi_card("Felsőfokú végzettség – Bács02", f"{dip_b}%", f"Ország: {dip_o}%"), unsafe_allow_html=True)
-        with c2:
-            ert_b = round(KSH_VEGZETTSEG.loc[KSH_VEGZETTSEG["végzettség"]=="Érettségi","Bács02_pct"].values[0], 1)
-            ert_o = round(KSH_VEGZETTSEG.loc[KSH_VEGZETTSEG["végzettség"]=="Érettségi","Ország_pct"].values[0], 1)
-            st.markdown(kpi_card("Érettségizett – Bács02", f"{ert_b}%", f"Ország: {ert_o}%"), unsafe_allow_html=True)
-
-    with tab3:
-        cl, cr = st.columns(2)
-        with cl:
-            fig_ak_b = px.pie(
-                KSH_AKTIVITAS, values="Bács02", names="aktivitás",
-                title="Gazdasági aktivitás – Bács02",
-                color_discrete_sequence=["#0F9ED5","#E97132","#196B24","#A02B93"],
-                hole=0.35,
-            )
-            fig_ak_b.update_layout(**PLOTLY_LAYOUT, height=310)
-            st.plotly_chart(fig_ak_b, use_container_width=True)
-        with cr:
-            fig_ak_o = px.pie(
-                KSH_AKTIVITAS, values="Ország", names="aktivitás",
-                title="Gazdasági aktivitás – Magyarország",
-                color_discrete_sequence=["#0F9ED5","#E97132","#196B24","#A02B93"],
-                hole=0.35,
-            )
-            fig_ak_o.update_layout(**PLOTLY_LAYOUT, height=310)
-            st.plotly_chart(fig_ak_o, use_container_width=True)
-
-        st.markdown(info_box(f"Foglalkoztatottság aránya Bács02: {round(46176/(46176+1856+19035+6781)*100,1)}% | Ország: {round(4707851/(4707851+234986+2257357+718642)*100,1)}%"), unsafe_allow_html=True)
-
-    with tab4:
-        val_viz = KSH_VALLASS[KSH_VALLASS["vallás"] != "Nem válaszolt"].copy()
-        fig_val = go.Figure()
-        fig_val.add_trace(go.Bar(name="Bács02", x=val_viz["vallás"], y=val_viz["Bács02_pct"], marker_color="#E97132"))
-        fig_val.add_trace(go.Bar(name="Ország", x=val_viz["vallás"], y=val_viz["Ország_pct"], marker_color="#156082"))
-        fig_val.update_layout(**PLOTLY_LAYOUT, barmode="group", title="Vallási megoszlás (nem válaszolók nélkül, %)", height=360,
-                               yaxis_title="%", legend=dict(orientation="h", y=1.08))
-        st.plotly_chart(fig_val, use_container_width=True)
-
-# ─────────────────────────────────────────────
-# SAJÁT KUTATÁSOK
-# ─────────────────────────────────────────────
-
-def render_sajat():
-    st.markdown('<div class="page-title">📊 Saját Kutatások – Szociológiai Mérések</div>', unsafe_allow_html=True)
-    st.markdown(info_box("Századvég nagykutatás – Bács02 (N=500) és Ország (N=20 014) összehasonlítása"), unsafe_allow_html=True)
-
-    tab1, tab2, tab3 = st.tabs(["🧭 Ideológiai profil", "🧠 Big Five", "📺 Médiafogyasztás"])
-
-    with tab1:
-        st.markdown(section_header("Ideológiai önbesorolás", "7-fokú skálák – Bács02 vs. Ország"), unsafe_allow_html=True)
-
-        c1, c2 = st.columns(2)
-        with c1:
-            # Liberális-Konzervatív
-            fig_lk = go.Figure()
-            fig_lk.add_trace(go.Bar(name="Bács02", x=SURVEY_LIBKONZ["skála"], y=SURVEY_LIBKONZ["Bács02"],
-                                     marker_color="#E97132", text=SURVEY_LIBKONZ["Bács02"], texttemplate="%{text:.1f}%", textposition="outside"))
-            fig_lk.add_trace(go.Bar(name="Ország", x=SURVEY_LIBKONZ["skála"], y=SURVEY_LIBKONZ["Ország"],
-                                     marker_color="#156082", text=SURVEY_LIBKONZ["Ország"], texttemplate="%{text:.1f}%", textposition="outside"))
-            fig_lk.update_layout(**PLOTLY_LAYOUT, barmode="group", title="Liberális ↔ Konzervatív skála (%)",
-                                   height=320, yaxis_title="%",
-                                   legend=dict(orientation="h", y=1.08),
-                                   xaxis=dict(tickfont_size=10))
-            st.plotly_chart(fig_lk, use_container_width=True)
-
-        with c2:
-            # Bal-Jobb
-            fig_bj = go.Figure()
-            fig_bj.add_trace(go.Bar(name="Bács02", x=SURVEY_BALJOBB["skála"], y=SURVEY_BALJOBB["Bács02"],
-                                     marker_color="#E97132", text=SURVEY_BALJOBB["Bács02"], texttemplate="%{text:.1f}%", textposition="outside"))
-            fig_bj.add_trace(go.Bar(name="Ország", x=SURVEY_BALJOBB["skála"], y=SURVEY_BALJOBB["Ország"],
-                                     marker_color="#156082", text=SURVEY_BALJOBB["Ország"], texttemplate="%{text:.1f}%", textposition="outside"))
-            fig_bj.update_layout(**PLOTLY_LAYOUT, barmode="group", title="Baloldali ↔ Jobboldali skála (%)",
-                                   height=320, yaxis_title="%",
-                                   legend=dict(orientation="h", y=1.08),
-                                   xaxis=dict(tickfont_size=10))
-            st.plotly_chart(fig_bj, use_container_width=True)
-
-        # Átlagok
-        lk_avg_b = sum((i+1)*v/100 for i,v in enumerate(SURVEY_LIBKONZ["Bács02"]))
-        lk_avg_o = sum((i+1)*v/100 for i,v in enumerate(SURVEY_LIBKONZ["Ország"]))
-        bj_avg_b = sum((i+1)*v/100 for i,v in enumerate(SURVEY_BALJOBB["Bács02"]))
-        bj_avg_o = sum((i+1)*v/100 for i,v in enumerate(SURVEY_BALJOBB["Ország"]))
-
-        m1, m2, m3, m4 = st.columns(4)
-        m1.markdown(kpi_card("Lib-Konz átlag – Bács02", f"{lk_avg_b:.2f} / 7", "Magasabb = konzervatívabb"), unsafe_allow_html=True)
-        m2.markdown(kpi_card("Lib-Konz átlag – Ország", f"{lk_avg_o:.2f} / 7", "Magasabb = konzervatívabb"), unsafe_allow_html=True)
-        m3.markdown(kpi_card("Bal-Jobb átlag – Bács02", f"{bj_avg_b:.2f} / 7", "Magasabb = jobboldalibb"), unsafe_allow_html=True)
-        m4.markdown(kpi_card("Bal-Jobb átlag – Ország", f"{bj_avg_o:.2f} / 7", "Magasabb = jobboldalibb"), unsafe_allow_html=True)
-
-    with tab2:
-        st.markdown(section_header("Big Five személyiségprofil", "BFI–10 skála – Bács02 minta (N=45 teljes kit. / N=500)"), unsafe_allow_html=True)
-        st.markdown(info_box("A Big Five kérdőív csak a minta egy részénél lett teljesen kitöltve (N=45). Az adatok tájékoztató jellegűek."), unsafe_allow_html=True)
-
-        big5_df = pd.DataFrame([
-            {"dimenzió": "Neuroticizmus (aggódás)",      "Bács02 átlag (4-as sk.)": 2.57, "Jellemzés": "Átlagos"},
-            {"dimenzió": "Neuroticizmus (idegesség)",    "Bács02 átlag (4-as sk.)": 2.43, "Jellemzés": "Átlagos"},
-            {"dimenzió": "Nyitottság (nyugodtság)",      "Bács02 átlag (4-as sk.)": 2.77, "Jellemzés": "Átlag felett"},
-            {"dimenzió": "Extraverzió (beszédesség)",    "Bács02 átlag (4-as sk.)": 3.00, "Jellemzés": "Magas"},
-            {"dimenzió": "Extraverzió (társaság)",       "Bács02 átlag (4-as sk.)": 2.78, "Jellemzés": "Átlag felett"},
-            {"dimenzió": "Extraverzió (visszafogottság)","Bács02 átlag (4-as sk.)": 2.53, "Jellemzés": "Átlagos"},
-        ])
-
-        fig_b5 = px.bar(
-            big5_df, x="Bács02 átlag (4-as sk.)", y="dimenzió", orientation="h",
-            color="Bács02 átlag (4-as sk.)",
-            color_continuous_scale=["#E8E8E8","#0F9ED5","#0E2841"],
-            title="Big Five dimenziók – Bács02 átlagok (1–4 skála)",
-            text="Bács02 átlag (4-as sk.)",
-        )
-        fig_b5.update_traces(texttemplate="%{text:.2f}", textposition="outside")
-        fig_b5.update_layout(**PLOTLY_LAYOUT, showlegend=False, height=380,
-                              coloraxis_showscale=False, xaxis=dict(range=[1, 4.5]))
-        st.plotly_chart(fig_b5, use_container_width=True)
-
-    with tab3:
-        st.markdown(section_header("Médiafogyasztás és digitális aktivitás", "KSH digitális adatok + kutatási eredmények"), unsafe_allow_html=True)
-
-        dig_df = pd.DataFrame([
-            {"szint": "Alapszintű digitális",   "Bács02": 19429, "Ország": 2112155},
-            {"szint": "Középszintű digitális",  "Bács02": 33584, "Ország": 3536979},
-            {"szint": "Magas szintű digitális", "Bács02": 7472,  "Ország": 780693},
-            {"szint": "Nem végez digitális tev.","Bács02": 13363, "Ország": 1489009},
-        ])
-        for col in ["Bács02", "Ország"]:
-            dig_df[f"{col}_pct"] = (dig_df[col] / dig_df[col].sum() * 100).round(1)
-
-        fig_dig = go.Figure()
-        fig_dig.add_trace(go.Bar(name="Bács02", x=dig_df["szint"], y=dig_df["Bács02_pct"], marker_color="#E97132"))
-        fig_dig.add_trace(go.Bar(name="Ország", x=dig_df["szint"], y=dig_df["Ország_pct"], marker_color="#156082"))
-        fig_dig.update_layout(**PLOTLY_LAYOUT, barmode="group", title="Digitális tevékenységi szint (%)",
-                               height=320, yaxis_title="%", legend=dict(orientation="h", y=1.08))
-        st.plotly_chart(fig_dig, use_container_width=True)
-
-        media_df = pd.DataFrame([
-            {"freq": "Soha",          "Bács02": 2.1, "Ország": 5.4},
-            {"freq": "Nagyon ritkán", "Bács02": 8.0, "Ország": 3.7},
-            {"freq": "Inkább ritkán", "Bács02": 24.3,"Ország": 7.2},
-            {"freq": "Inkább sűrűn",  "Bács02": 42.0,"Ország": 45.0},
-            {"freq": "Nagyon sűrűn",  "Bács02": 23.6,"Ország": 38.7},
-        ])
-        fig_med = go.Figure()
-        fig_med.add_trace(go.Bar(name="Bács02", x=media_df["freq"], y=media_df["Bács02"], marker_color="#E97132"))
-        fig_med.add_trace(go.Bar(name="Ország", x=media_df["freq"], y=media_df["Ország"], marker_color="#156082"))
-        fig_med.update_layout(**PLOTLY_LAYOUT, barmode="group", title="Milyen gyakran találkozik politikai tartalommal a közösségi médiában? (%)",
-                               height=310, yaxis_title="%", legend=dict(orientation="h", y=1.08))
-        st.plotly_chart(fig_med, use_container_width=True)
-
-# ─────────────────────────────────────────────
-# POLITIKAI KÖZVÉLEMÉNY
-# ─────────────────────────────────────────────
-
-def render_kozvelem():
-    st.markdown('<div class="page-title">🔭 Politikai Közvéleménykutatás</div>', unsafe_allow_html=True)
-    st.markdown(info_box("Századvég nagykutatás adatai – Bács02 (N=500) és Ország (N=20 014)"), unsafe_allow_html=True)
-
-    tab1, tab2, tab3 = st.tabs(["🗳️ Pártpreferenciák", "🔄 Szavazói átváltás", "📊 Közhangulat"])
-
-    with tab1:
-        st.markdown(section_header("Jelenlegi pártpreferenciák", "Ha most vasárnap lennének a parlamenti választások..."), unsafe_allow_html=True)
-
-        cl, cr = st.columns(2)
-        with cl:
-            fig_pref_b = px.pie(
-                PARTPREF_BACS, values="pct", names="párt",
-                color="párt",
-                color_discrete_map={r["párt"]: r["szín"] for _, r in PARTPREF_BACS.iterrows()},
-                title="Pártpreferencia – Bács02 (N=500)",
-                hole=0.38,
-            )
-            fig_pref_b.update_traces(textinfo="label+percent")
-            fig_pref_b.update_layout(**PLOTLY_LAYOUT, height=380, legend_font_size=11)
-            st.plotly_chart(fig_pref_b, use_container_width=True)
-
-        with cr:
-            fig_pref_o = px.pie(
-                PARTPREF_ORSZAG, values="pct", names="párt",
-                color="párt",
-                color_discrete_map={r["párt"]: r["szín"] for _, r in PARTPREF_ORSZAG.iterrows()},
-                title="Pártpreferencia – Ország (N=20 014)",
-                hole=0.38,
-            )
-            fig_pref_o.update_traces(textinfo="label+percent")
-            fig_pref_o.update_layout(**PLOTLY_LAYOUT, height=380, legend_font_size=11)
-            st.plotly_chart(fig_pref_o, use_container_width=True)
-
-        # Összehasonlító bar
-        comp_df = PARTPREF_BACS.merge(PARTPREF_ORSZAG, on="párt", suffixes=("_Bács", "_Ország"))
-        fig_comp = go.Figure()
-        fig_comp.add_trace(go.Bar(name="Bács02", x=comp_df["párt"], y=comp_df["pct_Bács"],
-                                   marker_color="#E97132", text=comp_df["pct_Bács"], texttemplate="%{text:.1f}%", textposition="outside"))
-        fig_comp.add_trace(go.Bar(name="Ország", x=comp_df["párt"], y=comp_df["pct_Ország"],
-                                   marker_color="#156082", text=comp_df["pct_Ország"], texttemplate="%{text:.1f}%", textposition="outside"))
-        fig_comp.update_layout(**PLOTLY_LAYOUT, barmode="group", title="Bács02 vs. Ország – pártpreferencia összehasonlítás (%)",
-                                height=320, yaxis_title="%", legend=dict(orientation="h", y=1.1))
-        st.plotly_chart(fig_comp, use_container_width=True)
-
-    with tab2:
-        st.markdown(section_header("2022-es szavazat vs. jelenlegi preferencia", "Visszamenőleges és aktuális mérés – Bács02"), unsafe_allow_html=True)
-
-        cl, cr = st.columns(2)
-        with cl:
-            fig_2022 = px.bar(
-                SZAVAZAT_2022_BACS.sort_values("pct", ascending=True),
-                x="pct", y="párt", orientation="h",
-                color="párt",
-                color_discrete_map={r["párt"]: r["szín"] for _, r in SZAVAZAT_2022_BACS.iterrows()},
-                title="2022 OGY választáson leadott szavazat (Bács02 %, N=500)",
-                text="pct",
-            )
-            fig_2022.update_traces(texttemplate="%{text:.1f}%", textposition="outside")
-            fig_2022.update_layout(**PLOTLY_LAYOUT, showlegend=False, height=340, xaxis=dict(range=[0, 55]))
-            st.plotly_chart(fig_2022, use_container_width=True)
-
-        with cr:
-            fig_curr = px.bar(
-                PARTPREF_BACS.sort_values("pct", ascending=True),
-                x="pct", y="párt", orientation="h",
-                color="párt",
-                color_discrete_map={r["párt"]: r["szín"] for _, r in PARTPREF_BACS.iterrows()},
-                title="Jelenlegi pártpreferencia (Bács02 %, N=500)",
-                text="pct",
-            )
-            fig_curr.update_traces(texttemplate="%{text:.1f}%", textposition="outside")
-            fig_curr.update_layout(**PLOTLY_LAYOUT, showlegend=False, height=340, xaxis=dict(range=[0, 55]))
-            st.plotly_chart(fig_curr, use_container_width=True)
-
-        st.markdown(info_box("Főbb változások: Fidesz 43,5% → 36,0% (−7,5pp), Ellenzék/TISZA 28,5% → 38,4% (+9,9pp), Mi Hazánk 5,6% → 8,0% (+2,4pp)"), unsafe_allow_html=True)
-
-        # Szavazói átváltás sankey
-        fig_sankey = go.Figure(go.Sankey(
-            node=dict(
-                pad=15, thickness=20,
-                label=["Fidesz 2022", "Ellenzék 2022", "Mi Hazánk 2022", "Más/NS 2022",
-                       "Fidesz ma", "TISZA ma", "Mi Hazánk ma", "DK/más ma", "Bizony./NM"],
-                color=["#E97132","#156082","#196B24","#8aaac0",
-                       "#E97132","#0F9ED5","#196B24","#2F7EC7","#aaaaaa"],
-            ),
-            link=dict(
-                source=[0,0,0,0,  1,1,1,1,  2,2,2,  3,3,3],
-                target=[4,5,6,8,  5,4,6,8,  5,4,6,  4,5,8],
-                value =[179,25,8,6,  142,5,5,10,  10,5,13, 10,5,30],
-                color =["rgba(233,113,50,0.4)","rgba(233,113,50,0.2)","rgba(233,113,50,0.1)","rgba(233,113,50,0.1)",
-                        "rgba(21,96,130,0.4)","rgba(21,96,130,0.2)","rgba(21,96,130,0.1)","rgba(21,96,130,0.1)",
-                        "rgba(25,107,36,0.3)","rgba(25,107,36,0.2)","rgba(25,107,36,0.2)",
-                        "rgba(138,170,192,0.3)","rgba(138,170,192,0.2)","rgba(138,170,192,0.2)"],
-            )
-        ))
-        fig_sankey.update_layout(**PLOTLY_LAYOUT, title="Szavazói átváltás – 2022 szavazat → jelenlegi preferencia (becslés, Bács02)",
-                                  height=380, font_size=12)
-        st.plotly_chart(fig_sankey, use_container_width=True)
-
-    with tab3:
-        st.markdown(section_header("Politikai közhangulat", "Ország iránya, személyek megítélése – Bács02"), unsafe_allow_html=True)
-
-        hang_df = pd.DataFrame([
-            {"állítás": "Az emberek jobbra mennek Magyarorsz.", "pct": 38.6},
-            {"állítás": "Az emberek rosszabbra mennek",         "pct": 52.0},
-            {"állítás": "A politikusok nem törödnek velük",     "pct": 61.0},
-            {"állítás": "A kormány jó munkát végez",            "pct": 34.0},
-            {"állítás": "Az ellenzék jobb alternatíva lenne",   "pct": 42.0},
-        ])
-
-        fig_hang = px.bar(
-            hang_df.sort_values("pct"),
-            x="pct", y="állítás", orientation="h",
-            color="pct",
-            color_continuous_scale=["#E8E8E8","#E97132","#c0392b"],
-            title="Közhangulati állítások – egyet értők aránya (Bács02, %)",
-            text="pct",
-        )
-        fig_hang.update_traces(texttemplate="%{text:.1f}%", textposition="outside")
-        fig_hang.update_layout(**PLOTLY_LAYOUT, showlegend=False, height=320,
-                                coloraxis_showscale=False, xaxis=dict(range=[0, 75]))
-        st.plotly_chart(fig_hang, use_container_width=True)
-
-        st.markdown(info_box("Részletes személyiségi megítélési adatok és problématérkép a következő adatfeltöltésnél kerül be."), unsafe_allow_html=True)
-
-# ─────────────────────────────────────────────
-# SOCIAL MEDIA (PLACEHOLDER)
-# ─────────────────────────────────────────────
-
-def render_social():
-    st.markdown('<div class="page-title">📱 Social Media Monitor</div>', unsafe_allow_html=True)
-
+        rows = [r for r in BACS_OEVK if r["oevk"]==terulet]
+        if not rows: return get_active("Országos",None)
+        d=rows[0]
+        return {"nev":d["oevk"],"valasztopolgar":d["v"],"megjelentek":d["m"],"ervenytelen":d["e"],
+                "érvényes":d["é"],"Fidesz-KDNP":d["F"],"Ellenzék":d["El"],"Mi Hazánk":d["MH"],
+                "MKKP":d["MK"],"Egyéb":d["Ey"],"reszvetel_pct":d["rp"],"ervenytelen_pct":d["ep"],
+                "fidesz_pct":d["fp"],"ksh_nep":None,"ksh_18plus":None}
+
+def grouped_bar(df, x_col, title, h=320):
+    fig = go.Figure()
+    fig.add_trace(go.Bar(name="Bács02",x=df[x_col],y=df["B_%"],marker_color=C["orange"],
+                          text=df["B_%"],texttemplate="%{text:.1f}%",textposition="outside"))
+    fig.add_trace(go.Bar(name="Ország",x=df[x_col],y=df["O_%"],marker_color=C["blue"],
+                          text=df["O_%"],texttemplate="%{text:.1f}%",textposition="outside"))
+    fig.update_layout(**PLOT_BASE,barmode="group",title=title,height=h,yaxis_title="%",
+                       legend=dict(orientation="h",y=1.12))
+    st.plotly_chart(fig,use_container_width=True,config={"displayModeBar":False})
+
+# ═══════════════════════════════════════════════════════
+# TOPBAR
+# ═══════════════════════════════════════════════════════
+st.markdown(f"""
+<div id="topbar">
+  <div style="display:flex;align-items:center;gap:14px;">
+    {icon_img}
+    {logo_img}
+    <div style="width:1px;height:26px;background:rgba(255,255,255,.15);margin:0 2px;"></div>
+    <span class="tb-title">Politikai Hőtérkép</span>
+    <span class="tb-badge">2022</span>
+  </div>
+  <div style="color:rgba(255,255,255,.35);font-size:11px;">Századvég Alapítvány · Belső elemzési eszköz</div>
+</div>
+""", unsafe_allow_html=True)
+
+# ═══════════════════════════════════════════════════════
+# SIDEBAR
+# ═══════════════════════════════════════════════════════
+with st.sidebar:
+    st.markdown('<div style="height:14px;"></div>', unsafe_allow_html=True)
+    st.markdown('<div class="nav-sec">Navigáció</div>', unsafe_allow_html=True)
+
+    if "page" not in st.session_state:
+        st.session_state.page = "Főoldal"
+
+    pages = [("🏠","Főoldal"),("🗳️","Választástörténet"),("👥","KSH Szociológia"),
+             ("📊","Saját Kutatások"),("🔭","Politikai Közvélemény"),("📱","Social Media"),("💰","Gazdasági Adatok")]
+
+    for icon_, name_ in pages:
+        if st.button(f"{icon_}  {name_}", key=f"nav_{name_}", use_container_width=True):
+            st.session_state.page = name_
+
+    st.markdown('<div class="nav-sec" style="margin-top:18px;">Szűrők</div>', unsafe_allow_html=True)
+    st.markdown('<div style="padding:0 8px 0;">', unsafe_allow_html=True)
+
+    ev_ = st.selectbox("📅 Év", ["2022"], help="2010–2018 hamarosan")
+    szint_ = st.selectbox("📍 Terület", ["Országos","Megye","OEVK (Bács-Kiskun)"])
+
+    terulet_ = None
+    if szint_ == "Megye":
+        terulet_ = st.selectbox("Megye:", sorted(COUNTY.keys()))
+    elif szint_ == "OEVK (Bács-Kiskun)":
+        terulet_ = st.selectbox("OEVK:", [r["oevk"] for r in BACS_OEVK])
+        szint_ = "OEVK"
+
+    st.markdown('</div>', unsafe_allow_html=True)
     st.markdown("""
-    <div style="background:linear-gradient(135deg,#0E2841,#156082);border-radius:12px;padding:40px;text-align:center;margin:20px 0;">
-        <div style="font-size:48px;margin-bottom:16px;">📱</div>
-        <div style="font-family:'Libre Baskerville',serif;font-size:24px;color:white;margin-bottom:12px;">Social Media Elemzési Modul</div>
-        <div style="color:#0F9ED5;font-size:15px;max-width:500px;margin:0 auto;">
-            Helyi közszereplők aktivitása, Facebook-csoportok témamodellje, komment-klasszifikáció és sentiment-elemzés – hamarosan elérhető.
-        </div>
+    <div style="padding:14px 16px;margin-top:16px;border-top:1px solid rgba(255,255,255,.06);font-size:10px;color:rgba(255,255,255,.25);line-height:1.8;">
+      📂 NVI 2022 – Egyéni + listás<br>
+      📊 KSH Népszámlálás 2022<br>
+      🔬 Századvég nagykutatás<br>
+      <span style="color:rgba(233,113,50,.5);">N=500 Bács02 · N=20 014 Ország</span>
     </div>""", unsafe_allow_html=True)
 
-    c1, c2, c3 = st.columns(3)
-    features = [
-        ("👤 Helyi szereplők", "Jelöltek és polgármesterek közösségi média aktivitása: követők, lájkok, kommentek időbeli változása"),
-        ("🏷️ Témamodellezés", "NLP topic modeling: helyi FB csoportok és híroldal fő témái, szógyakoriságok, kulcsszó felhő"),
-        ("😊 Komment-klasszifikáció", "Pozitív / negatív / semleges arányok per jelölt – sentiment timeline és AI összefoglaló"),
+active = get_active(szint_, terulet_)
+page   = st.session_state.page
+
+# ═══════════════════════════════════════════════════════
+# TARTALOM
+# ═══════════════════════════════════════════════════════
+st.markdown('<div class="page-wrap">', unsafe_allow_html=True)
+
+# ──────────────── FŐOLDAL ────────────────
+if page == "Főoldal":
+    st.markdown(f'<p class="sec-title">Összefoglaló áttekintés</p><p class="sec-sub">2022-es OGY választás · {active["nev"]}</p>', unsafe_allow_html=True)
+    st.markdown(f'<div class="filter-badge">📍 {active["nev"]} &nbsp;·&nbsp; 🗳️ {ev_}</div>', unsafe_allow_html=True)
+
+    # KPI sor - konzisztens forrásból
+    k1,k2,k3,k4,k5 = st.columns(5)
+    nep = active.get("ksh_nep"); nep18 = active.get("ksh_18plus")
+
+    k1.markdown(kpi("Össznépesség (KSH)",fmt(nep) if nep else "N/A",
+        pct=f"{round(nep18/nep*100,1)}% szavazóképes" if nep and nep18 else None,
+        note="KSH Népszámlálás 2022",icon="👥"), unsafe_allow_html=True)
+    k2.markdown(kpi("18+ korú lakos (KSH)",fmt(nep18) if nep18 else "N/A",
+        pct=f"{round(nep18/nep*100,1)}% az össznépességből" if nep and nep18 else None,
+        note="Szavazóképes korú lakos",icon="📋"), unsafe_allow_html=True)
+    k3.markdown(kpi("Nyilv. választópolgár",fmt(active["valasztopolgar"]),
+        note="NVI névjegyzék · 2022",icon="📝"), unsafe_allow_html=True)
+    k4.markdown(kpi("Tényleges szavazók",fmt(active["megjelentek"]),
+        pct=f"{active['reszvetel_pct']}% részvétel",
+        note="Névjegyzékbe vettekhez képest",icon="🗳️"), unsafe_allow_html=True)
+    k5.markdown(kpi("Érvénytelen szavazatok",fmt(active["ervenytelen"]),
+        pct=f"{active['ervenytelen_pct']}% az urnában",
+        note="Leadott szavazatokhoz képest",icon="✗"), unsafe_allow_html=True)
+
+    st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
+
+    # Térkép + eredmény
+    col_map, col_res = st.columns([3,2])
+
+    with col_map:
+        st.markdown('<div class="chart-card"><h4>🗺️ Interaktív térkép – 2022 egyéni szavazatarányok</h4>', unsafe_allow_html=True)
+        map_toggle = st.radio("Megjelenített adat:",["Fidesz %","Ellenzék %","Részvétel %"],
+                               horizontal=True, label_visibility="collapsed", key="mt")
+        val_col = {"Fidesz %":"fp","Ellenzék %":"elp","Részvétel %":"rp"}[map_toggle]
+        cscale = {"Fidesz %":[[0,"#fde8d5"],[.5,C["orange"]],[1,"#7a3010"]],
+                   "Ellenzék %":[[0,"#d5e8f5"],[.5,C["blue"]],[1,"#0a2f42"]],
+                   "Részvétel %":[[0,"#e8edf5"],[.5,C["blue"]],[1,"#0a2f42"]]}[map_toggle]
+        map_data = [{"megye":k.title(),"lat":MEGYE_COORDS[k][0],"lon":MEGYE_COORDS[k][1],
+                     "val":d[val_col],"rp":d["rp"],"fp":d["fp"],"elp":d["elp"],"v":d["v"]}
+                    for k,d in COUNTY.items()]
+        mdf = pd.DataFrame(map_data)
+        fig_map = px.scatter_geo(mdf, lat="lat", lon="lon", size="v",
+            color="val", color_continuous_scale=cscale, hover_name="megye", size_max=44,
+            hover_data={"fp":":.1f","elp":":.1f","rp":":.1f","lat":False,"lon":False,"v":":,","val":":.1f"},
+            labels={"fp":"Fidesz %","elp":"Ellenzék %","rp":"Részvétel %","v":"Válasz.","val":map_toggle})
+        fig_map.update_geos(scope="europe",center=dict(lat=47.2,lon=19.3),projection_scale=9,
+            showland=True,landcolor="#EEF1F5",showocean=False,showcoastlines=True,coastlinecolor="#cdd4df",
+            showcountries=True,countrycolor="#b0bcc9",showframe=False,bgcolor="rgba(0,0,0,0)")
+        fig_map.update_layout(**PLOT_BASE, height=370, margin=dict(l=0,r=0,t=0,b=0),
+            coloraxis_colorbar=dict(title=map_toggle,len=0.6,thickness=10,tickfont_size=10),
+            geo=dict(bgcolor="rgba(0,0,0,0)"))
+        st.plotly_chart(fig_map, use_container_width=True, config={"displayModeBar":False})
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    with col_res:
+        st.markdown('<div class="chart-card"><h4>📊 Szavazatarányok – egyéni (2022)</h4>', unsafe_allow_html=True)
+        parties = ["Fidesz-KDNP","Ellenzék","Mi Hazánk","MKKP","Egyéb"]
+        total_e = active["érvényes"]
+        for p in parties:
+            pct_ = round(active.get(p,0)/total_e*100,1)
+            clr  = PARTY_COLORS.get(p,C["gray_mid"])
+            st.markdown(f"""
+            <div class="party-row">
+                <div class="party-dot" style="background:{clr};"></div>
+                <div class="party-name">{p}</div>
+                <div class="party-right">
+                    <div class="party-pct">{pct_}%</div>
+                    <div class="party-votes">{fmt(active.get(p,0))} szav.</div>
+                </div>
+            </div>""", unsafe_allow_html=True)
+        fig_d = go.Figure(go.Pie(
+            labels=parties, values=[active.get(p,0) for p in parties],
+            marker_colors=[PARTY_COLORS.get(p,C["gray_mid"]) for p in parties],
+            hole=0.55, textinfo="none",
+            hovertemplate="%{label}: %{percent}<extra></extra>",
+        ))
+        fig_d.update_layout(**PLOT_BASE,height=190,margin=dict(l=0,r=0,t=10,b=0),showlegend=False)
+        st.plotly_chart(fig_d, use_container_width=True, config={"displayModeBar":False})
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
+    st.markdown('<p class="sec-title" style="font-size:16px;margin-bottom:12px;">Elemzési modulok</p>', unsafe_allow_html=True)
+    nc = st.columns(3)
+    nav_items = [
+        ("🗳️","Választástörténet","OEVK eredmények, jelölt adatok, megye-összehasonlítás","Választástörténet"),
+        ("👥","KSH Szociológia","Demográfia, végzettség, vallás – Bács02 vs. Ország","KSH Szociológia"),
+        ("📊","Saját Kutatások","Ideológiai profil, Big Five, médiafogyasztás","Saját Kutatások"),
+        ("🔭","Politikai Közvélemény","Pártpreferenciák, Sankey, közhangulat","Politikai Közvélemény"),
+        ("📱","Social Media","Aktivitás, témák, kommentek – hamarosan","Social Media"),
+        ("💰","Gazdasági Adatok","Percepciók, megélhetés, megtakarítás","Gazdasági Adatok"),
     ]
-    for col, (title, desc) in zip([c1, c2, c3], features):
-        col.markdown(f"""
-        <div class="nav-card" style="border-top-color:#E97132;">
-            <div class="nav-title">{title}</div>
-            <div class="nav-desc" style="font-size:12px;margin-top:8px;">{desc}</div>
-            <div style="margin-top:12px;font-size:11px;color:#E97132;font-weight:700;">🚧 Fejlesztés alatt</div>
-        </div>""", unsafe_allow_html=True)
+    for i,(ic,tit,desc,tgt) in enumerate(nav_items):
+        with nc[i%3]:
+            st.markdown(f"""
+            <div class="chart-card" style="margin-bottom:8px;padding:18px;">
+                <div style="font-size:24px;margin-bottom:8px;">{ic}</div>
+                <div style="font-size:13px;font-weight:700;color:{C['navy']};margin-bottom:6px;">{tit}</div>
+                <div style="font-size:11px;color:{C['gray_mid']};line-height:1.5;">{desc}</div>
+            </div>""", unsafe_allow_html=True)
+            if st.button(f"Megnyitás →", key=f"open_{tgt}", use_container_width=True):
+                st.session_state.page = tgt; st.rerun()
 
-# ─────────────────────────────────────────────
-# GAZDASÁGI ADATOK
-# ─────────────────────────────────────────────
+# ──────────────── VÁLASZTÁSTÖRTÉNET ────────────────
+elif page == "Választástörténet":
+    st.markdown(f'<p class="sec-title">🗳️ Választástörténet</p><p class="sec-sub">2022 · {active["nev"]}</p>', unsafe_allow_html=True)
+    info("Jelenleg a 2022-es egyéni OEVK adatok érhetők el. Korábbi évek (2010–2018) adatai hamarosan.",icon="📅")
 
-def render_gazdasag():
-    st.markdown('<div class="page-title">💰 Gazdasági Adatok</div>', unsafe_allow_html=True)
-    st.markdown(info_box("Századvég nagykutatás – Bács02 (N=464). Gazdasági percepciók, megélhetés, megtakarítás, inflációérzékelés."), unsafe_allow_html=True)
-
-    # Fejléc KPI-ok
-    c1, c2, c3, c4 = st.columns(4)
-    c1.markdown(kpi_card("Rossz irányba megy az ország", "64,9%", "38,6% határozottan rossznak látja"), unsafe_allow_html=True)
-    c2.markdown(kpi_card("Érzi az infláció hatását", "89,2%", "57,5% teljes mértékben"), unsafe_allow_html=True)
-    c3.markdown(kpi_card("Van megtakarítása", "42,7%", "52,2% egyáltalán nem"), unsafe_allow_html=True)
-    c4.markdown(kpi_card("Anyagi gondok", "13,3%", "Hónapról-hónapra vagy nélkülöz"), unsafe_allow_html=True)
-
-    st.markdown("<br>", unsafe_allow_html=True)
-    tab1, tab2, tab3 = st.tabs(["🌡️ Makroérzékelés", "🏠 Megélhetés", "💳 Megtakarítás & Hitel"])
+    tab1,tab2,tab3 = st.tabs(["  📊 Bács-Kiskun OEVK-k  ","  🇭🇺 Megye-összehasonlítás  ","  📋 Rangsor & Táblázat  "])
 
     with tab1:
-        cl, cr = st.columns(2)
-        with cl:
-            fig_ir = px.bar(
-                GAZD_IRANY, x="pct", y="vélemény", orientation="h",
-                color="szín", color_discrete_map={r["szín"]: r["szín"] for _, r in GAZD_IRANY.iterrows()},
-                title="Jó vagy rossz irányba mennek a dolgok Magyarországon? (%)",
-                text="pct",
-            )
-            fig_ir.update_traces(texttemplate="%{text:.1f}%", textposition="outside",
-                                  marker_color=GAZD_IRANY["szín"].tolist())
-            fig_ir.update_layout(**PLOTLY_LAYOUT, showlegend=False, height=300, xaxis=dict(range=[0, 50]))
-            st.plotly_chart(fig_ir, use_container_width=True)
-
-        with cr:
-            fig_mult = px.bar(
-                GAZD_MULT, x="pct", y="változás", orientation="h",
-                title="Hogyan változott az ország gazdasági helyzete az elmúlt 1 évben? (%)",
-                text="pct",
-            )
-            fig_mult.update_traces(texttemplate="%{text:.1f}%", textposition="outside",
-                                    marker_color=GAZD_MULT["szín"].tolist())
-            fig_mult.update_layout(**PLOTLY_LAYOUT, showlegend=False, height=300, xaxis=dict(range=[0, 55]))
-            st.plotly_chart(fig_mult, use_container_width=True)
-
-        # Infláció percepció
-        fig_infl = px.pie(
-            INFLACIO_ERZEKELES, values="pct", names="válasz",
-            color="válasz",
-            color_discrete_map={r["válasz"]: r["szín"] for _, r in INFLACIO_ERZEKELES.iterrows()},
-            title="Az infláció hatással van a mindennapi megélhetésére? (%)",
-            hole=0.4,
-        )
-        fig_infl.update_layout(**PLOTLY_LAYOUT, height=300)
-        st.plotly_chart(fig_infl, use_container_width=True)
-
-        # Inflációs percepció számszerűleg
-        inflacio_perc = pd.DataFrame([
-            {"becsült infláció": "< 1%",       "pct": 0.6},
-            {"becsült infláció": "1–2%",        "pct": 1.7},
-            {"becsült infláció": "3–4%",        "pct": 3.0},
-            {"becsült infláció": "5–6%",        "pct": 10.8},
-            {"becsült infláció": "7–8%",        "pct": 4.5},
-            {"becsült infláció": "9–10%",       "pct": 18.5},
-            {"becsült infláció": "11–15%",      "pct": 10.8},
-            {"becsült infláció": "16–20%",      "pct": 14.7},
-            {"becsült infláció": "> 20%",       "pct": 34.1},
-            {"becsült infláció": "NT/NV",       "pct": 1.3},
-        ])
-        fig_infl2 = px.bar(
-            inflacio_perc, x="becsült infláció", y="pct",
-            title="Becsült inflációs ráta az elmúlt 1 évben (Bács02, %)",
-            text="pct",
-            color="pct", color_continuous_scale=["#E8E8E8","#E97132","#c0392b"],
-        )
-        fig_infl2.update_traces(texttemplate="%{text:.1f}%", textposition="outside")
-        fig_infl2.update_layout(**PLOTLY_LAYOUT, showlegend=False, height=300, coloraxis_showscale=False)
-        st.plotly_chart(fig_infl2, use_container_width=True)
+        sel = st.selectbox("OEVK:",  [r["oevk"] for r in BACS_OEVK])
+        row = next(r for r in BACS_OEVK if r["oevk"]==sel)
+        c1,c2,c3,c4 = st.columns(4)
+        c1.markdown(kpi("Választópolgár",fmt(row["v"]),note="NVI névjegyzék",icon="📋"), unsafe_allow_html=True)
+        c2.markdown(kpi("Megjelentek",fmt(row["m"]),pct=f"{row['rp']}% részvétel",icon="🗳️"), unsafe_allow_html=True)
+        c3.markdown(kpi("Érvényes",fmt(row["é"]),icon="✓"), unsafe_allow_html=True)
+        c4.markdown(kpi("Érvénytelen",fmt(row["e"]),pct=f"{row['ep']}%",icon="✗"), unsafe_allow_html=True)
+        st.markdown("<br>", unsafe_allow_html=True)
+        ca,cb = st.columns([3,2])
+        with ca:
+            parties=["Fidesz-KDNP","Ellenzék","Mi Hazánk","MKKP","Egyéb"]
+            vals=[row[k] for k in ["F","El","MH","MK","Ey"]]
+            pcts=[round(v/row["é"]*100,1) for v in vals]
+            fig=go.Figure(go.Bar(x=parties,y=pcts,marker_color=[PARTY_COLORS.get(p) for p in parties],
+                                  text=[f"{p:.1f}%" for p in pcts],textposition="outside"))
+            fig.update_layout(**PLOT_BASE,height=300,title=f"{sel} – eredmény (%)",showlegend=False,yaxis=dict(range=[0,max(pcts)*1.2]))
+            st.plotly_chart(fig,use_container_width=True,config={"displayModeBar":False})
+        with cb:
+            st.markdown(f"""
+            <div class="chart-card" style="margin-top:0">
+                <h4>🏆 Nyertes</h4>
+                <div style="font-size:19px;font-weight:700;color:{C['orange']};margin:6px 0 4px;">{row['ny']}</div>
+                <div style="font-size:12px;color:{C['gray_mid']};margin-bottom:12px;">Fidesz-KDNP</div>
+                <div style="font-size:13px;margin-bottom:5px;"><b>{round(row['F']/row['é']*100,1)}%</b> – {fmt(row['F'])} szavazat</div>
+                <div style="font-size:12px;color:{C['gray_mid']};">Különbség: <b>{fmt(row['diff'])} szavazat</b></div>
+            </div>""", unsafe_allow_html=True)
+        # Bubble scatter
+        fig_sc = px.scatter(BACS_DF,x="fidesz_pct",y="reszvetel_pct",size="v",color="ellenzek_pct",
+            color_continuous_scale=[[0,C["gray_lt"]],[0.5,C["blue"]],[1,C["navy"]]],hover_name="oevk",size_max=38,
+            title="Fidesz % vs Részvétel – Bács-Kiskun OEVK-k",
+            labels={"fidesz_pct":"Fidesz %","reszvetel_pct":"Részvétel %","ellenzek_pct":"Ell. %","v":"Válasz."})
+        fig_sc.update_layout(**PLOT_BASE,height=320,coloraxis_colorbar=dict(title="Ell.%",len=0.7,thickness=10))
+        st.plotly_chart(fig_sc,use_container_width=True,config={"displayModeBar":False})
 
     with tab2:
-        cl, cr = st.columns(2)
-        with cl:
-            fig_haz = px.pie(
-                HAZTARTAS_ANYAG, values="pct", names="helyzet",
-                color="helyzet",
-                color_discrete_map={r["helyzet"]: r["szín"] for _, r in HAZTARTAS_ANYAG.iterrows()},
-                title="Háztartás anyagi helyzete (Bács02, %)",
-                hole=0.4,
-            )
-            fig_haz.update_layout(**PLOTLY_LAYOUT, height=320)
-            st.plotly_chart(fig_haz, use_container_width=True)
-
-        with cr:
-            megel_df = pd.DataFrame([
-                {"önértékelés": "Sokkal rosszabb",     "pct": 9.1,  "szín": "#c0392b"},
-                {"önértékelés": "Kicsit rosszabb",     "pct": 19.2, "szín": "#e74c3c"},
-                {"önértékelés": "Átlagos",             "pct": 47.8, "szín": "#8aaac0"},
-                {"önértékelés": "Kicsit jobb",         "pct": 18.8, "szín": "#196B24"},
-                {"önértékelés": "Sokkal jobb",         "pct": 2.6,  "szín": "#1abc9c"},
-                {"önértékelés": "NT/NV",               "pct": 2.6,  "szín": "#cccccc"},
-            ])
-            fig_megel = px.bar(
-                megel_df, x="pct", y="önértékelés", orientation="h",
-                title="Hogyan értékeli anyagi helyzetét korcsoportjához képest? (%)",
-                text="pct",
-            )
-            fig_megel.update_traces(texttemplate="%{text:.1f}%", textposition="outside",
-                                     marker_color=megel_df["szín"].tolist())
-            fig_megel.update_layout(**PLOTLY_LAYOUT, showlegend=False, height=320, xaxis=dict(range=[0, 60]))
-            st.plotly_chart(fig_megel, use_container_width=True)
+        c1,c2 = st.columns(2)
+        with c1:
+            fig_f=px.bar(COUNTY_DF.sort_values("fidesz_pct"),x="fidesz_pct",y="megye",orientation="h",
+                         color="fidesz_pct",color_continuous_scale=[[0,"#fde8d5"],[.5,C["orange"]],[1,"#7a3010"]],
+                         title="Fidesz-KDNP szavazatarány – megyénként (%)",text="fidesz_pct")
+            fig_f.update_traces(texttemplate="%{text:.1f}%",textposition="outside")
+            fig_f.update_layout(**PLOT_BASE,height=480,showlegend=False,coloraxis_showscale=False,xaxis=dict(range=[0,75]))
+            st.plotly_chart(fig_f,use_container_width=True,config={"displayModeBar":False})
+        with c2:
+            fig_r=px.bar(COUNTY_DF.sort_values("reszvetel_pct"),x="reszvetel_pct",y="megye",orientation="h",
+                         color="reszvetel_pct",color_continuous_scale=[[0,"#e8edf5"],[.5,C["blue"]],[1,C["navy"]]],
+                         title="Részvételi arány – megyénként (%)",text="reszvetel_pct")
+            fig_r.update_traces(texttemplate="%{text:.1f}%",textposition="outside")
+            fig_r.update_layout(**PLOT_BASE,height=480,showlegend=False,coloraxis_showscale=False,xaxis=dict(range=[60,80]))
+            st.plotly_chart(fig_r,use_container_width=True,config={"displayModeBar":False})
 
     with tab3:
-        cl, cr = st.columns(2)
-        with cl:
-            fig_meg = px.pie(
-                MEGTAKARITAS, values="pct", names="válasz",
-                color="válasz",
-                color_discrete_map={r["válasz"]: r["szín"] for _, r in MEGTAKARITAS.iterrows()},
-                title="Van-e pénzügyi megtakarítása? (%)",
-                hole=0.4,
-            )
-            fig_meg.update_layout(**PLOTLY_LAYOUT, height=310)
-            st.plotly_chart(fig_meg, use_container_width=True)
+        info("Bács-Kiskun OEVK-k összehasonlítása – szortírható táblázat",icon="📋")
+        tbl=BACS_DF[["oevk","ny","fidesz_pct","ellenzek_pct","reszvetel_pct","ervenytelen_pct","kulonbseg","v"]].copy()
+        tbl["rang"]=tbl["fidesz_pct"].rank(ascending=False).astype(int)
+        tbl.columns=["OEVK","Nyertes","Fidesz %","Ellenzék %","Részvétel %","Érvénytelen %","Különbség","Válasz.","Rang"]
+        st.dataframe(tbl.style.background_gradient(subset=["Fidesz %"],cmap="Oranges")
+                              .background_gradient(subset=["Ellenzék %"],cmap="Blues")
+                              .background_gradient(subset=["Részvétel %"],cmap="Greys"),
+                     use_container_width=True,hide_index=True)
 
-        with cr:
-            felre_df = pd.DataFrame([
-                {"rendszeresség": "Havonta/gyakrabban", "pct": 21.3, "szín": "#196B24"},
-                {"rendszeresség": "2–3 havonta",        "pct": 15.9, "szín": "#0F9ED5"},
-                {"rendszeresség": "Félévente",          "pct": 7.1,  "szín": "#156082"},
-                {"rendszeresség": "Évente egyszer",     "pct": 9.7,  "szín": "#0E2841"},
-                {"rendszeresség": "Soha",               "pct": 38.6, "szín": "#E97132"},
-                {"rendszeresség": "NT/NV",              "pct": 7.3,  "szín": "#cccccc"},
-            ])
-            fig_felre = px.bar(
-                felre_df, x="pct", y="rendszeresség", orientation="h",
-                title="Milyen rendszerességgel tesz félre pénzt? (%)",
-                text="pct",
-            )
-            fig_felre.update_traces(texttemplate="%{text:.1f}%", textposition="outside",
-                                     marker_color=felre_df["szín"].tolist())
-            fig_felre.update_layout(**PLOTLY_LAYOUT, showlegend=False, height=310, xaxis=dict(range=[0, 48]))
-            st.plotly_chart(fig_felre, use_container_width=True)
+# ──────────────── KSH SZOCIOLÓGIA ────────────────
+elif page == "KSH Szociológia":
+    st.markdown('<p class="sec-title">👥 KSH Szociológia</p><p class="sec-sub">Bács02 VK · KSH Népszámlálás 2022 · Bács02 vs. Ország</p>', unsafe_allow_html=True)
+    c1,c2,c3,c4 = st.columns(4)
+    c1.markdown(kpi("Bács02 Össznépesség","91 100",note="KSH Népszámlálás 2022",icon="👥"), unsafe_allow_html=True)
+    c2.markdown(kpi("18+ korú lakos","73 848",pct="81,1% az össznépességből",icon="✓"), unsafe_allow_html=True)
+    c3.markdown(kpi("Nők aránya","51,6%",note="47 043 fő",icon="♀"), unsafe_allow_html=True)
+    c4.markdown(kpi("Roma arány","0,64%",note="582 fő (cirány nemz.)",icon="◉"), unsafe_allow_html=True)
+    st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
 
-# ─────────────────────────────────────────────
-# ROUTER – Oldal megjelenítése
-# ─────────────────────────────────────────────
+    KSH_KOR=pd.DataFrame([{"k":"0–14","B":14280,"O":1393232},{"k":"15–17","B":2972,"O":291566},
+        {"k":"18–24","B":6677,"O":703667},{"k":"25–39","B":16750,"O":1805868},
+        {"k":"40–59","B":27373,"O":2864605},{"k":"60–64","B":5345,"O":565253},
+        {"k":"65–79","B":13950,"O":1545252},{"k":"80+","B":3753,"O":434191}])
+    KSH_VEG=pd.DataFrame([{"k":"8 oszt. alatt","B":1483,"O":171559},{"k":"8 általános","B":12656,"O":1467235},
+        {"k":"Szakképesítés","B":16225,"O":1730141},{"k":"Érettségi","B":25057,"O":2716185},{"k":"Diploma","B":18427,"O":1833716}])
+    KSH_AKT=pd.DataFrame([{"k":"Foglalkoztatott","B":46176,"O":4707851},{"k":"Munkanélküli","B":1856,"O":234986},
+        {"k":"Inaktív ellátott","B":19035,"O":2257357},{"k":"Eltartott","B":6781,"O":718642}])
+    KSH_VAL=pd.DataFrame([{"k":"Katolikus","B":24815,"O":2481487},{"k":"Református","B":6107,"O":799881},
+        {"k":"Evangélikus","B":709,"O":148965},{"k":"Más keresztény","B":981,"O":117714},
+        {"k":"Más felekezet","B":225,"O":36699},{"k":"Nem vallásos","B":9417,"O":1172298}])
+    for df_ in [KSH_KOR,KSH_VEG,KSH_AKT,KSH_VAL]:
+        df_["B_%"]=(df_["B"]/df_["B"].sum()*100).round(1)
+        df_["O_%"]=(df_["O"]/df_["O"].sum()*100).round(1)
 
-if page.startswith("🏠"):
-    render_fooldal()
-elif page.startswith("🗳️"):
-    render_valasztas()
-elif page.startswith("👥"):
-    render_ksh()
-elif page.startswith("📊"):
-    render_sajat()
-elif page.startswith("🔭"):
-    render_kozvelem()
-elif page.startswith("📱"):
-    render_social()
-elif page.startswith("💰"):
-    render_gazdasag()
+    tab1,tab2,tab3,tab4 = st.tabs(["👶 Korcsoport","🎓 Végzettség","💼 Aktivitás","⛪ Vallás"])
+    with tab1:
+        grouped_bar(KSH_KOR,"k","Korcsoport megoszlás – Bács02 vs. Ország (%)",360)
+        ca,cb=st.columns(2)
+        disc=[C["navy"],C["blue"],C["sky"],C["orange"],C["orange_lt"],C["green"],C["purple"],C["gray_mid"]]
+        with ca:
+            fig_=px.pie(KSH_KOR,values="B",names="k",title="Bács02",color_discrete_sequence=disc,hole=0.38)
+            fig_.update_layout(**PLOT_BASE,height=250); st.plotly_chart(fig_,use_container_width=True,config={"displayModeBar":False})
+        with cb:
+            fig_2=px.pie(KSH_KOR,values="O",names="k",title="Ország",color_discrete_sequence=disc,hole=0.38)
+            fig_2.update_layout(**PLOT_BASE,height=250); st.plotly_chart(fig_2,use_container_width=True,config={"displayModeBar":False})
+    with tab2:
+        grouped_bar(KSH_VEG,"k","Iskolai végzettség – Bács02 vs. Ország (%)",310)
+        ca,cb=st.columns(2)
+        dip_b=KSH_VEG.loc[KSH_VEG["k"]=="Diploma","B_%"].values[0]
+        dip_o=KSH_VEG.loc[KSH_VEG["k"]=="Diploma","O_%"].values[0]
+        ca.markdown(kpi("Diploma – Bács02",f"{dip_b:.1f}%",pct=f"Ország: {dip_o:.1f}%",note="Felsőfokú végzettség",icon="🎓"), unsafe_allow_html=True)
+        cb.markdown(kpi("Érettségi – Bács02",f"{KSH_VEG.loc[KSH_VEG['k']=='Érettségi','B_%'].values[0]:.1f}%",
+            pct=f"Ország: {KSH_VEG.loc[KSH_VEG['k']=='Érettségi','O_%'].values[0]:.1f}%",icon="📄"), unsafe_allow_html=True)
+    with tab3:
+        ca,cb=st.columns(2)
+        disc2=[C["sky"],C["orange"],C["green"],C["purple"]]
+        with ca:
+            f_=px.pie(KSH_AKT,values="B",names="k",title="Aktivitás – Bács02",color_discrete_sequence=disc2,hole=0.38)
+            f_.update_layout(**PLOT_BASE,height=300); st.plotly_chart(f_,use_container_width=True,config={"displayModeBar":False})
+        with cb:
+            f_2=px.pie(KSH_AKT,values="O",names="k",title="Aktivitás – Ország",color_discrete_sequence=disc2,hole=0.38)
+            f_2.update_layout(**PLOT_BASE,height=300); st.plotly_chart(f_2,use_container_width=True,config={"displayModeBar":False})
+        grouped_bar(KSH_AKT,"k","Aktivitás összehasonlítás (%)",270)
+    with tab4:
+        grouped_bar(KSH_VAL,"k","Vallási megoszlás – Bács02 vs. Ország (%)",330)
+
+# ──────────────── SAJÁT KUTATÁSOK ────────────────
+elif page == "Saját Kutatások":
+    st.markdown('<p class="sec-title">📊 Saját Kutatások</p><p class="sec-sub">Századvég nagykutatás · Bács02 (N=500) · Ország (N=20 014)</p>', unsafe_allow_html=True)
+    LIBKONZ=pd.DataFrame([{"sk":"1–Lib","B":4.2,"O":10.4},{"sk":"2","B":5.1,"O":6.2},{"sk":"3","B":10.1,"O":13.2},
+        {"sk":"4–Közép","B":36.3,"O":29.3},{"sk":"5","B":14.9,"O":11.6},{"sk":"6","B":6.9,"O":7.3},{"sk":"7–Konz","B":22.5,"O":21.9}])
+    BALJOBB=pd.DataFrame([{"sk":"1–Bal","B":9.1,"O":11.2},{"sk":"2","B":5.9,"O":3.3},{"sk":"3","B":6.4,"O":11.0},
+        {"sk":"4–Közép","B":34.3,"O":30.7},{"sk":"5","B":12.9,"O":9.4},{"sk":"6","B":7.8,"O":8.2},{"sk":"7–Jobb","B":23.6,"O":26.2}])
+    for df_ in [LIBKONZ,BALJOBB]:
+        df_["B_%"]=df_["B"]; df_["O_%"]=df_["O"]
+
+    tab1,tab2,tab3 = st.tabs(["🧭 Ideológiai profil","🧠 Big Five","📺 Médiafogyasztás"])
+    with tab1:
+        ca,cb=st.columns(2)
+        with ca: grouped_bar(LIBKONZ,"sk","Liberális ↔ Konzervatív skála (%)",290)
+        with cb: grouped_bar(BALJOBB,"sk","Baloldali ↔ Jobboldali skála (%)",290)
+        lk_b=sum((i+1)*v/100 for i,v in enumerate(LIBKONZ["B"])); lk_o=sum((i+1)*v/100 for i,v in enumerate(LIBKONZ["O"]))
+        bj_b=sum((i+1)*v/100 for i,v in enumerate(BALJOBB["B"])); bj_o=sum((i+1)*v/100 for i,v in enumerate(BALJOBB["O"]))
+        m1,m2,m3,m4=st.columns(4)
+        m1.markdown(kpi("Lib↔Konz – Bács02",f"{lk_b:.2f}",note="7-es skálán (mag.=konz.)",icon="↔"), unsafe_allow_html=True)
+        m2.markdown(kpi("Lib↔Konz – Ország",f"{lk_o:.2f}",note="7-es skálán",icon="↔"), unsafe_allow_html=True)
+        m3.markdown(kpi("Bal↔Jobb – Bács02",f"{bj_b:.2f}",note="7-es skálán (mag.=jobb.)",icon="↔"), unsafe_allow_html=True)
+        m4.markdown(kpi("Bal↔Jobb – Ország",f"{bj_o:.2f}",note="7-es skálán",icon="↔"), unsafe_allow_html=True)
+    with tab2:
+        info("Big Five – tájékoztató jellegű (N=45 teljes kitöltő Bács02-ből)",icon="⚠️")
+        b5=pd.DataFrame([{"d":"Neuroticizmus – Aggódik","a":2.57},{"d":"Neuroticizmus – Idegessé válik","a":2.43},
+            {"d":"Nyitottság – Nyugodt marad","a":2.77},{"d":"Extraverzió – Beszédes","a":3.00},
+            {"d":"Extraverzió – Társaságkedvelő","a":2.78},{"d":"Extraverzió – Visszafogott","a":2.53}])
+        fig_b5=px.bar(b5,x="a",y="d",orientation="h",color="a",
+            color_continuous_scale=[[0,C["gray_lt"]],[.5,C["sky"]],[1,C["navy"]]],
+            title="Big Five dimenziók – Bács02 átlagok (1–4 skála)",text="a")
+        fig_b5.update_traces(texttemplate="%{text:.2f}",textposition="outside")
+        fig_b5.update_layout(**PLOT_BASE,showlegend=False,height=370,coloraxis_showscale=False,xaxis=dict(range=[1,4.5]))
+        st.plotly_chart(fig_b5,use_container_width=True,config={"displayModeBar":False})
+    with tab3:
+        dig=pd.DataFrame([{"k":"Alapszintű","B":26.3,"O":26.7,"B_%":26.3,"O_%":26.7},{"k":"Középszintű","B":45.5,"O":44.7,"B_%":45.5,"O_%":44.7},
+            {"k":"Magas szintű","B":10.1,"O":9.9,"B_%":10.1,"O_%":9.9},{"k":"Nem digitális","B":18.1,"O":18.8,"B_%":18.1,"O_%":18.8}])
+        med=pd.DataFrame([{"k":"Soha","B":2.1,"O":5.4,"B_%":2.1,"O_%":5.4},{"k":"Nagyon ritkán","B":8.0,"O":3.7,"B_%":8.0,"O_%":3.7},
+            {"k":"Inkább ritkán","B":24.3,"O":7.2,"B_%":24.3,"O_%":7.2},{"k":"Inkább sűrűn","B":42.0,"O":45.0,"B_%":42.0,"O_%":45.0},
+            {"k":"Nagyon sűrűn","B":23.6,"O":38.7,"B_%":23.6,"O_%":38.7}])
+        ca,cb=st.columns(2)
+        with ca: grouped_bar(dig,"k","Digitális aktivitás (%)",300)
+        with cb: grouped_bar(med,"k","Politikai tartalom a közösségi médiában (%)",300)
+
+# ──────────────── POLITIKAI KÖZVÉLEMÉNY ────────────────
+elif page == "Politikai Közvélemény":
+    st.markdown('<p class="sec-title">🔭 Politikai Közvéleménykutatás</p><p class="sec-sub">Századvég nagykutatás · Bács02 (N=500) · Ország (N=20 014)</p>', unsafe_allow_html=True)
+
+    tab1,tab2,tab3 = st.tabs(["🗳️ Pártpreferenciák","🔄 Szavazói átváltás","📊 Közhangulat"])
+    with tab1:
+        ca,cb=st.columns(2)
+        def pbar(df,title):
+            fig=go.Figure(go.Bar(y=df["párt"],x=df["pct"],orientation="h",
+                marker_color=df["szín"].tolist(),text=df["pct"].apply(lambda x:f"{x:.1f}%"),textposition="outside"))
+            fig.update_layout(**PLOT_BASE,title=title,height=330,xaxis=dict(range=[0,52],title="%"),showlegend=False)
+            st.plotly_chart(fig,use_container_width=True,config={"displayModeBar":False})
+        with ca: pbar(PARTPREF_BACS.sort_values("pct"),"Ha most lennének választások – Bács02 (%)")
+        with cb: pbar(PARTPREF_ORSZAG.sort_values("pct"),"Ha most lennének választások – Ország (%)")
+        comp=PARTPREF_BACS.merge(PARTPREF_ORSZAG,on="párt",suffixes=("_B","_O"))
+        fig_cmp=go.Figure()
+        fig_cmp.add_trace(go.Bar(name="Bács02",x=comp["párt"],y=comp["pct_B"],marker_color=C["orange"],
+            text=comp["pct_B"],texttemplate="%{text:.1f}%",textposition="outside"))
+        fig_cmp.add_trace(go.Bar(name="Ország",x=comp["párt"],y=comp["pct_O"],marker_color=C["blue"],
+            text=comp["pct_O"],texttemplate="%{text:.1f}%",textposition="outside"))
+        fig_cmp.update_layout(**PLOT_BASE,barmode="group",title="Bács02 vs. Ország összehasonlítás (%)",height=300,
+                               yaxis_title="%",legend=dict(orientation="h",y=1.12))
+        st.plotly_chart(fig_cmp,use_container_width=True,config={"displayModeBar":False})
+    with tab2:
+        ca,cb=st.columns(2)
+        with ca: pbar2=lambda df,t: [px.bar(df.sort_values("pct"),x="pct",y="párt",orientation="h",color="párt",
+            color_discrete_map={r["párt"]:r["szín"] for _,r in df.iterrows()},title=t,text="pct") or None]
+        def hbar(df,title):
+            fig=px.bar(df.sort_values("pct"),x="pct",y="párt",orientation="h",color="párt",
+                color_discrete_map={r["párt"]:r["szín"] for _,r in df.iterrows()},title=title,text="pct")
+            fig.update_traces(texttemplate="%{text:.1f}%",textposition="outside")
+            fig.update_layout(**PLOT_BASE,showlegend=False,height=330,xaxis=dict(range=[0,55]))
+            st.plotly_chart(fig,use_container_width=True,config={"displayModeBar":False})
+        with ca: hbar(SZAV_2022,"2022 OGY leadott szavazat – Bács02 (%)")
+        with cb: hbar(PARTPREF_BACS,"Jelenlegi preferencia – Bács02 (%)")
+        info("Fidesz: 43,5% → 36,0% (−7,5pp)  ·  TISZA/Ellenzék: 28,5% → 38,4% (+9,9pp)  ·  Mi Hazánk: 5,6% → 8,0% (+2,4pp)",icon="📌")
+        fig_sk=go.Figure(go.Sankey(
+            node=dict(pad=18,thickness=22,
+                label=["Fidesz 2022","Ellenzék 2022","Mi Hazánk 2022","Más/NS 2022","Fidesz ma","TISZA ma","Mi Hazánk ma","DK/más ma","Bizony./NM"],
+                color=[C["orange"],C["blue"],C["green"],C["gray_mid"],C["orange"],C["sky"],C["green"],C["blue"],"#999"]),
+            link=dict(source=[0,0,0,0,1,1,1,1,2,2,2,3,3,3],target=[4,5,6,8,5,4,6,8,5,4,6,4,5,8],
+                value=[179,25,8,6,142,5,5,10,10,5,13,10,5,30],
+                color=["rgba(233,113,50,.35)"]*4+["rgba(21,96,130,.35)"]*4+["rgba(25,107,36,.35)"]*3+["rgba(138,170,192,.3)"]*3)))
+        fig_sk.update_layout(**PLOT_BASE,title="Szavazói átváltás – 2022 → jelenlegi preferencia (becslés, Bács02)",height=370)
+        st.plotly_chart(fig_sk,use_container_width=True,config={"displayModeBar":False})
+    with tab3:
+        HANG=pd.DataFrame([{"á":"Ország rossz irányba","pct":64.9},{"á":"Infláció hat a megélhetésre","pct":89.2},
+            {"á":"Gazdasági helyzet romlott","pct":67.6},{"á":"Közszolgáltatások romlottak","pct":69.0},{"á":"Munkanélküliség nőtt","pct":36.9}])
+        IRANY=pd.DataFrame([{"v":"Határozottan rossz","pct":38.6,"c":C["red"]},{"v":"Inkább rossz","pct":26.3,"c":C["red_lt"]},
+            {"v":"Is-is","pct":12.5,"c":C["gray_mid"]},{"v":"Inkább jó","pct":18.3,"c":C["green"]},{"v":"Határozottan jó","pct":3.4,"c":C["teal"]}])
+        ca,cb=st.columns(2)
+        with ca:
+            fig_ir=px.pie(IRANY,values="pct",names="v",color="v",
+                color_discrete_map={r["v"]:r["c"] for _,r in IRANY.iterrows()},
+                title="Jó/rossz irányba az ország? (Bács02, %)",hole=0.42)
+            fig_ir.update_layout(**PLOT_BASE,height=310); st.plotly_chart(fig_ir,use_container_width=True,config={"displayModeBar":False})
+        with cb:
+            fig_h=px.bar(HANG.sort_values("pct"),x="pct",y="á",orientation="h",color="pct",
+                color_continuous_scale=[[0,C["gray_lt"]],[.5,C["orange"]],[1,C["red"]]],
+                title="Közhangulati állítások – egyet értők % (Bács02)",text="pct")
+            fig_h.update_traces(texttemplate="%{text:.1f}%",textposition="outside")
+            fig_h.update_layout(**PLOT_BASE,showlegend=False,height=310,coloraxis_showscale=False,xaxis=dict(range=[0,100]))
+            st.plotly_chart(fig_h,use_container_width=True,config={"displayModeBar":False})
+
+# ──────────────── SOCIAL MEDIA ────────────────
+elif page == "Social Media":
+    st.markdown('<p class="sec-title">📱 Social Media Monitor</p><p class="sec-sub">API integráció folyamatban · Hamarosan elérhető</p>', unsafe_allow_html=True)
+    st.markdown(f"""
+    <div style="background:linear-gradient(135deg,{C['navy']},{C['blue']});border-radius:16px;padding:56px 40px;text-align:center;margin:10px 0 28px;">
+        <div style="font-size:52px;margin-bottom:18px;">📱</div>
+        <div style="font-family:'Playfair Display',serif;font-size:24px;color:white;margin-bottom:12px;">Social Media Elemzési Modul</div>
+        <div style="color:rgba(255,255,255,.55);font-size:13px;max-width:460px;margin:0 auto;line-height:1.8;">
+            Helyi közszereplők aktivitása · Facebook-csoportok témamodell<br>
+            Komment-klasszifikáció · Sentiment-elemzés · AI összefoglaló
+        </div>
+    </div>""", unsafe_allow_html=True)
+    c1,c2,c3=st.columns(3)
+    for col,(ic,t,d) in zip([c1,c2,c3],[
+        ("👤","Helyi szereplők","Jelöltek FB/Instagram aktivitása: követők, lájkok, kommentek időbeli változása"),
+        ("🏷️","Témamodellezés","NLP topic modeling: helyi FB csoportok és híroldal főbb témái, szógyakoriságok"),
+        ("😊","Komment-klasszifikáció","Pozitív/negatív/semleges arányok per jelölt – sentiment timeline"),]):
+        col.markdown(f"""<div class="chart-card" style="text-align:center;padding:28px 18px;">
+            <div style="font-size:30px;margin-bottom:10px;">{ic}</div>
+            <div style="font-size:13px;font-weight:700;color:{C['navy']};margin-bottom:8px;">{t}</div>
+            <div style="font-size:11px;color:{C['gray_mid']};line-height:1.6;">{d}</div>
+            <div style="margin-top:12px;font-size:11px;color:{C['orange']};font-weight:700;">🚧 Hamarosan</div>
+        </div>""", unsafe_allow_html=True)
+
+# ──────────────── GAZDASÁGI ADATOK ────────────────
+elif page == "Gazdasági Adatok":
+    st.markdown('<p class="sec-title">💰 Gazdasági Adatok</p><p class="sec-sub">Századvég nagykutatás · Bács02 (N=464) · Percepciók, megélhetés, megtakarítás</p>', unsafe_allow_html=True)
+    c1,c2,c3,c4=st.columns(4)
+    c1.markdown(kpi("Rossz irányba az ország","64,9%",note="38,6% határozottan",icon="📉"), unsafe_allow_html=True)
+    c2.markdown(kpi("Érzi az inflációt","89,2%",note="57,5% teljesen",icon="💸"), unsafe_allow_html=True)
+    c3.markdown(kpi("Van megtakarítása","42,7%",note="52,2% egyáltalán nincs",icon="🏦"), unsafe_allow_html=True)
+    c4.markdown(kpi("Anyagi gondok","13,3%",note="Hónapról-hónapra / nélkülöz",icon="⚠️"), unsafe_allow_html=True)
+    st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
+
+    tab1,tab2,tab3=st.tabs(["🌡️ Makroérzékelés","🏠 Megélhetés","💳 Megtakarítás"])
+    with tab1:
+        GAZD=pd.DataFrame([{"k":"Határozottan romlott","pct":43.5,"c":C["red"]},{"k":"Kismértékben romlott","pct":24.1,"c":C["red_lt"]},
+            {"k":"Nem változott","pct":18.1,"c":C["gray_mid"]},{"k":"Kismértékben javult","pct":9.7,"c":C["green"]},{"k":"Határozottan javult","pct":3.0,"c":C["teal"]}])
+        INFL=pd.DataFrame([{"k":"<1%","pct":0.6},{"k":"1–2%","pct":1.7},{"k":"3–4%","pct":3.0},{"k":"5–6%","pct":10.8},
+            {"k":"7–8%","pct":4.5},{"k":"9–10%","pct":18.5},{"k":"11–15%","pct":10.8},{"k":"16–20%","pct":14.7},{"k":">20%","pct":34.1}])
+        ca,cb=st.columns(2)
+        with ca:
+            fig_g=px.bar(GAZD,x="pct",y="k",orientation="h",title="Ország gazd. helyzete az elmúlt 1 évben (%)",text="pct")
+            fig_g.update_traces(texttemplate="%{text:.1f}%",textposition="outside",marker_color=GAZD["c"].tolist())
+            fig_g.update_layout(**PLOT_BASE,showlegend=False,height=300,xaxis=dict(range=[0,55]))
+            st.plotly_chart(fig_g,use_container_width=True,config={"displayModeBar":False})
+        with cb:
+            fig_i=px.bar(INFL,x="k",y="pct",color="pct",color_continuous_scale=[[0,C["gray_lt"]],[.5,C["orange"]],[1,C["red"]]],
+                title="Becsült infláció az elmúlt évben (Bács02, %)",text="pct")
+            fig_i.update_traces(texttemplate="%{text:.1f}%",textposition="outside")
+            fig_i.update_layout(**PLOT_BASE,showlegend=False,height=300,coloraxis_showscale=False)
+            st.plotly_chart(fig_i,use_container_width=True,config={"displayModeBar":False})
+    with tab2:
+        HAZ=pd.DataFrame([{"h":"Gondok nélkül","pct":7.3,"c":C["teal"]},{"h":"Jól kijövünk","pct":35.3,"c":C["green"]},
+            {"h":"Éppen kijövünk","pct":43.8,"c":C["gray_mid"]},{"h":"Anyagi gondok","pct":11.4,"c":C["red_lt"]},{"h":"Nélkülözünk","pct":1.9,"c":C["red"]}])
+        MEG=pd.DataFrame([{"m":"Sokkal rosszabb","pct":9.1,"c":C["red"]},{"m":"Kicsit rosszabb","pct":19.2,"c":C["red_lt"]},
+            {"m":"Átlagos","pct":47.8,"c":C["gray_mid"]},{"m":"Kicsit jobb","pct":18.8,"c":C["green"]},{"m":"Sokkal jobb","pct":2.6,"c":C["teal"]}])
+        ca,cb=st.columns(2)
+        with ca:
+            fh=px.pie(HAZ,values="pct",names="h",color="h",color_discrete_map={r["h"]:r["c"] for _,r in HAZ.iterrows()},
+                title="Háztartás anyagi helyzete (Bács02, %)",hole=0.42)
+            fh.update_layout(**PLOT_BASE,height=310); st.plotly_chart(fh,use_container_width=True,config={"displayModeBar":False})
+        with cb:
+            fm=px.bar(MEG,x="pct",y="m",orientation="h",title="Anyagi helyzet korcsoporthoz képest (Bács02, %)",text="pct")
+            fm.update_traces(texttemplate="%{text:.1f}%",textposition="outside",marker_color=MEG["c"].tolist())
+            fm.update_layout(**PLOT_BASE,showlegend=False,height=310,xaxis=dict(range=[0,60]))
+            st.plotly_chart(fm,use_container_width=True,config={"displayModeBar":False})
+    with tab3:
+        M2=pd.DataFrame([{"m":"Van megtakarítása","pct":42.7,"c":C["blue"]},{"m":"Nincs","pct":52.2,"c":C["orange"]},{"m":"NT/NV","pct":5.2,"c":C["gray_mid"]}])
+        FL=pd.DataFrame([{"f":"Havonta/gyakrabban","pct":21.3,"c":C["teal"]},{"f":"2–3 havonta","pct":15.9,"c":C["green"]},
+            {"f":"Félévente","pct":7.1,"c":C["blue"]},{"f":"Évente egyszer","pct":9.7,"c":C["sky"]},
+            {"f":"Soha","pct":38.6,"c":C["orange"]},{"f":"NT/NV","pct":7.3,"c":C["gray_mid"]}])
+        ca,cb=st.columns(2)
+        with ca:
+            fm2=px.pie(M2,values="pct",names="m",color="m",color_discrete_map={r["m"]:r["c"] for _,r in M2.iterrows()},
+                title="Van pénzügyi megtakarítása? (Bács02, %)",hole=0.42)
+            fm2.update_layout(**PLOT_BASE,height=310); st.plotly_chart(fm2,use_container_width=True,config={"displayModeBar":False})
+        with cb:
+            ff=px.bar(FL,x="pct",y="f",orientation="h",title="Milyen rendszerességgel tesz félre pénzt? (%)",text="pct")
+            ff.update_traces(texttemplate="%{text:.1f}%",textposition="outside",marker_color=FL["c"].tolist())
+            ff.update_layout(**PLOT_BASE,showlegend=False,height=310,xaxis=dict(range=[0,48]))
+            st.plotly_chart(ff,use_container_width=True,config={"displayModeBar":False})
+
+st.markdown('</div>', unsafe_allow_html=True)
