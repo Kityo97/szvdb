@@ -114,14 +114,14 @@ html, body, [class*="css"] {{
 
 /* ── KPI kártyák ── */
 .kpi-wrap {{
-    background: {C["navy"]}; border-radius: 12px; padding: 18px 18px 16px;
+    background: {C["navy"]}; border-radius: 12px; padding: 16px 16px 18px;
     position: relative; overflow: hidden;
-    box-shadow: 0 4px 20px rgba(14,40,65,.18); height: 100%;
+    box-shadow: 0 4px 20px rgba(14,40,65,.18); min-height: 110px;
 }}
 .kpi-wrap::after {{ content:''; position:absolute; bottom:0; left:0; right:0; height:3px; background:{C["orange"]}; }}
-.kpi-label {{ font-size:10px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:{C["sky"]} !important; margin-bottom:8px; }}
-.kpi-value {{ font-family:'Playfair Display',serif; font-size:28px; font-weight:700; color:{C["white"]} !important; line-height:1.1; }}
-.kpi-pct {{ display:inline-block; margin-top:6px; background:rgba(233,113,50,.15); color:{C["orange_lt"]} !important; font-size:12px; font-weight:600; padding:2px 8px; border-radius:20px; }}
+.kpi-label {{ font-size:9px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:{C["sky"]} !important; margin-bottom:6px; line-height:1.4; }}
+.kpi-value {{ font-family:'Playfair Display',serif; font-size:24px; font-weight:700; color:{C["white"]} !important; line-height:1.15; white-space:nowrap; }}
+.kpi-pct {{ display:inline-block; margin-top:5px; background:rgba(233,113,50,.15); color:{C["orange_lt"]} !important; font-size:11px; font-weight:600; padding:2px 7px; border-radius:20px; }}
 .kpi-note {{ font-size:10px; color:rgba(255,255,255,.35) !important; margin-top:4px; }}
 .kpi-na {{ font-family:'Playfair Display',serif; font-size:22px; color:rgba(255,255,255,.3) !important; }}
 
@@ -130,7 +130,7 @@ html, body, [class*="css"] {{
     background: {C["white"]}; border-radius: 12px; padding: 20px;
     box-shadow: 0 1px 6px rgba(14,40,65,.06); border: 1px solid rgba(14,40,65,.05); margin-bottom: 16px;
 }}
-.chart-card h4 {{ font-size:13px; font-weight:700; color:{C["navy"]}; margin:0 0 14px; padding-bottom:10px; border-bottom:1px solid {C["gray_lt"]}; }}
+.chart-card h4 {{ font-size:13px; font-weight:700; color:{C["navy"]}; margin:0 0 14px; padding-bottom:10px; border-bottom:1px solid {C["gray_lt"]}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }}
 
 /* ── Section ── */
 .sec-title {{ font-family:'Playfair Display',serif; font-size:20px; font-weight:700; color:{C["navy"]}; margin:0 0 4px; }}
@@ -146,7 +146,7 @@ html, body, [class*="css"] {{
 /* ── Party rows ── */
 .party-row {{ display:flex; align-items:center; padding:8px 12px; border-radius:6px; margin-bottom:4px; background:rgba(14,40,65,.025); }}
 .party-dot {{ width:10px; height:10px; border-radius:50%; margin-right:10px; flex-shrink:0; }}
-.party-name {{ font-size:12px; font-weight:600; flex:1; }}
+.party-name {{ font-size:12px; font-weight:600; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }}
 .party-right {{ text-align:right; }}
 .party-pct {{ font-size:13px; font-weight:700; color:{C["navy"]}; }}
 .party-votes {{ font-size:10px; color:{C["gray_mid"]}; }}
@@ -405,7 +405,7 @@ if page == "Főoldal":
         fig_map.update_geos(scope="europe",center=dict(lat=47.2,lon=19.3),projection_scale=9,
             showland=True,landcolor="#EEF1F5",showocean=False,showcoastlines=True,coastlinecolor="#cdd4df",
             showcountries=True,countrycolor="#b0bcc9",showframe=False,bgcolor="rgba(0,0,0,0)")
-        fig_map.update_layout(**PLOT_BASE, height=370, margin=dict(l=0,r=0,t=0,b=0),
+        fig_map.update_layout(**{k:v for k,v in PLOT_BASE.items() if k!="margin"}, height=370, margin=dict(l=0,r=0,t=0,b=0),
             coloraxis_colorbar=dict(title=map_toggle,len=0.6,thickness=10,tickfont_size=10),
             geo=dict(bgcolor="rgba(0,0,0,0)"))
         st.plotly_chart(fig_map, use_container_width=True, config={"displayModeBar":False})
@@ -433,7 +433,7 @@ if page == "Főoldal":
             hole=0.55, textinfo="none",
             hovertemplate="%{label}: %{percent}<extra></extra>",
         ))
-        fig_d.update_layout(**PLOT_BASE,height=190,margin=dict(l=0,r=0,t=10,b=0),showlegend=False)
+        fig_d.update_layout(**{k:v for k,v in PLOT_BASE.items() if k!="margin"},height=190,margin=dict(l=0,r=0,t=10,b=0),showlegend=False)
         st.plotly_chart(fig_d, use_container_width=True, config={"displayModeBar":False})
         st.markdown('</div>', unsafe_allow_html=True)
 
@@ -523,18 +523,15 @@ elif page == "Választástörténet":
         tbl=BACS_DF[["oevk","ny","fidesz_pct","ellenzek_pct","reszvetel_pct","ervenytelen_pct","kulonbseg","v"]].copy()
         tbl["rang"]=tbl["fidesz_pct"].rank(ascending=False).astype(int)
         tbl.columns=["OEVK","Nyertes","Fidesz %","Ellenzék %","Részvétel %","Érvénytelen %","Különbség","Válasz.","Rang"]
-        st.dataframe(tbl.style.background_gradient(subset=["Fidesz %"],cmap="Oranges")
-                              .background_gradient(subset=["Ellenzék %"],cmap="Blues")
-                              .background_gradient(subset=["Részvétel %"],cmap="Greys"),
-                     use_container_width=True,hide_index=True)
+        st.dataframe(tbl, use_container_width=True, hide_index=True)
 
 # ──────────────── KSH SZOCIOLÓGIA ────────────────
 elif page == "KSH Szociológia":
     st.markdown('<p class="sec-title">👥 KSH Szociológia</p><p class="sec-sub">Bács02 VK · KSH Népszámlálás 2022 · Bács02 vs. Ország</p>', unsafe_allow_html=True)
     c1,c2,c3,c4 = st.columns(4)
-    c1.markdown(kpi("Bács02 Össznépesség","91 100",note="KSH Népszámlálás 2022",icon="👥"), unsafe_allow_html=True)
-    c2.markdown(kpi("18+ korú lakos","73 848",pct="81,1% az össznépességből",icon="✓"), unsafe_allow_html=True)
-    c3.markdown(kpi("Nők aránya","51,6%",note="47 043 fő",icon="♀"), unsafe_allow_html=True)
+    c1.markdown(kpi("Bács02 Össznépesség","91 100",note="KSH Népszámlálás 2022",icon="👥"), unsafe_allow_html=True)
+    c2.markdown(kpi("18+ korú lakos","73 848",pct="81,1% az össznépességből",icon="✓"), unsafe_allow_html=True)
+    c3.markdown(kpi("Nők aránya","51,6%",note="47 043 fő",icon="♀"), unsafe_allow_html=True)
     c4.markdown(kpi("Roma arány","0,64%",note="582 fő (cirány nemz.)",icon="◉"), unsafe_allow_html=True)
     st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
 
