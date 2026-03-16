@@ -450,39 +450,17 @@ if page == "Főoldal":
 
     st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
 
-    # ── 3. TÉRKÉP – képernyő teljes szélessége ──
-    # Kilépünk a page-wrap padding alól egy negatív margin trükkel
-    st.markdown("""
-    <style>
-    .map-fullwidth {
-        margin-left:  -28px;
-        margin-right: -28px;
-        background: white;
-        border-top: 1px solid rgba(14,40,65,.06);
-        border-bottom: 1px solid rgba(14,40,65,.06);
-        padding: 14px 20px 0;
-    }
-    .map-fullwidth h4 {
-        font-size: 13px; font-weight: 700; color: #0E2841;
-        margin: 0 0 10px; padding-bottom: 10px;
-        border-bottom: 1px solid #E8E8E8;
-    }
-    /* Make the plotly chart also expand fully */
-    .map-fullwidth .stPlotlyChart { padding: 0 !important; }
-    .map-fullwidth .element-container { padding: 0 !important; }
-    </style>
-    <div class="map-fullwidth">
-        <h4>🗺️ Térkép – 2022 egyéni szavazatarányok</h4>
-    </div>
-    """, unsafe_allow_html=True)
+    # ── 3. TÉRKÉP – teljes szélességben, Magyarország szorosan kivágva ──
+    st.markdown('<div class="chart-card" style="padding:16px 20px 4px;">', unsafe_allow_html=True)
+    st.markdown('<h4 style="font-size:13px;font-weight:700;color:#0E2841;margin:0 0 10px;padding-bottom:10px;border-bottom:1px solid #E8E8E8;">🗺️ Térkép – 2022 egyéni szavazatarányok</h4>', unsafe_allow_html=True)
 
     map_toggle = st.radio("", ["Fidesz %", "Ellenzék %", "Részvétel %"],
                           horizontal=True, label_visibility="collapsed", key="mt")
     val_col = {"Fidesz %": "fp", "Ellenzék %": "elp", "Részvétel %": "rp"}[map_toggle]
     cscale  = {
-        "Fidesz %":    [[0,"#fde8d5"],[.5,C["orange"]],[1,"#7a3010"]],
-        "Ellenzék %":  [[0,"#d5e8f5"],[.5,C["blue"]],  [1,"#0a2f42"]],
-        "Részvétel %": [[0,"#e8edf5"],[.5,C["blue"]],  [1,"#0a2f42"]],
+        "Fidesz %":    [[0,"#fde8d5"],[.45,C["orange"]],[1,"#7a3010"]],
+        "Ellenzék %":  [[0,"#d5e8f5"],[.45,C["blue"]],  [1,"#0a2f42"]],
+        "Részvétel %": [[0,"#e8edf5"],[.5, C["blue"]],  [1,"#0a2f42"]],
     }[map_toggle]
     map_data = [
         {"megye": k.title(), "lat": MEGYE_COORDS[k][0], "lon": MEGYE_COORDS[k][1],
@@ -493,30 +471,39 @@ if page == "Főoldal":
     fig_map = px.scatter_geo(
         mdf, lat="lat", lon="lon", size="v",
         color="val", color_continuous_scale=cscale,
-        hover_name="megye", size_max=65,
+        hover_name="megye", size_max=55,
         hover_data={"fp":":.1f","elp":":.1f","rp":":.1f","lat":False,"lon":False,"v":":,","val":":.1f"},
         labels={"fp":"Fidesz %","elp":"Ellenzék %","rp":"Részvétel %","v":"Választópolgár","val":map_toggle},
+        fitbounds="locations",
     )
+    # A kulcs: explicit lat/lon tartomány Magyarországra szorítva
+    # Ez tölti ki teljesen a figure szélességét
     fig_map.update_geos(
-        scope="europe", center=dict(lat=47.2, lon=19.3), projection_scale=11,
-        showland=True, landcolor="#EEF1F5",
+        lataxis_range=[45.5, 49.0],
+        lonaxis_range=[15.6, 23.2],
+        projection_type="mercator",
+        showland=True,    landcolor="#E8EDF5",
         showocean=False,
-        showcoastlines=True, coastlinecolor="#cdd4df",
-        showcountries=True, countrycolor="#b0bcc9",
-        showframe=False, bgcolor="#F0F2F5",
+        showlakes=False,
+        showrivers=False,
+        showcoastlines=True, coastlinecolor="#b5c4d4",
+        showcountries=True,  countrycolor="#99b0c4",
+        showframe=False,
+        bgcolor="white",
     )
     fig_map.update_layout(
         font_family="Inter, system-ui, sans-serif",
-        paper_bgcolor="#F0F2F5",
-        plot_bgcolor="#F0F2F5",
+        paper_bgcolor="white",
         margin=dict(l=0, r=0, t=0, b=0),
-        height=560,
-        coloraxis_colorbar=dict(title=map_toggle, len=0.5, thickness=14, tickfont_size=11,
-                                bgcolor="rgba(255,255,255,.8)", bordercolor="#ddd", borderwidth=1),
-        geo=dict(bgcolor="#F0F2F5"),
+        height=520,
+        coloraxis_colorbar=dict(
+            title=map_toggle, len=0.6, thickness=14, tickfont_size=11,
+            bgcolor="rgba(255,255,255,.9)", bordercolor="#ddd", borderwidth=1,
+        ),
+        geo=dict(bgcolor="white"),
     )
     st.plotly_chart(fig_map, use_container_width=True, config={"displayModeBar": False})
-    st.markdown('<div style="height:8px;"></div>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
 # ──────────────── VÁLASZTÁSTÖRTÉNET ────────────────
 elif page == "Választástörténet":
