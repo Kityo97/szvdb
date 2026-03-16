@@ -1,6 +1,5 @@
 # Politikai Hőtérkép Dashboard 🗺️
 
-**Századvég Alapítvány – Belső elemzési eszköz**
 
 ## Telepítés és futtatás
 
