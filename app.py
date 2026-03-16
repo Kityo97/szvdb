@@ -402,7 +402,31 @@ if page == "Főoldal":
     st.markdown(f'<p class="sec-title">Összefoglaló áttekintés</p><p class="sec-sub">2022-es OGY választás · {active["nev"]}</p>', unsafe_allow_html=True)
     st.markdown(f'<div class="filter-badge">📍 {active["nev"]} &nbsp;·&nbsp; 🗳️ {ev_}</div>', unsafe_allow_html=True)
 
-    # KPI sor - konzisztens forrásból
+    # ── 1. ELEMZÉSI MODULOK (felül) ──
+    st.markdown('<p class="sec-title" style="font-size:15px;margin-bottom:10px;">Elemzési modulok</p>', unsafe_allow_html=True)
+    nc = st.columns(6)
+    nav_items = [
+        ("🗳️","Választástörténet","OEVK eredmények, jelölt adatok","Választástörténet"),
+        ("👥","KSH Szociológia","Demográfia, végzettség, vallás","KSH Szociológia"),
+        ("📊","Saját Kutatások","Ideológiai profil, Big Five","Saját Kutatások"),
+        ("🔭","Politikai Közvélemény","Preferenciák, Sankey","Politikai Közvélemény"),
+        ("📱","Social Media","Aktivitás, témák – hamarosan","Social Media"),
+        ("💰","Gazdasági Adatok","Percepció, megélhetés","Gazdasági Adatok"),
+    ]
+    for i,(ic,tit,desc,tgt) in enumerate(nav_items):
+        with nc[i]:
+            st.markdown(f"""
+            <div class="chart-card" style="margin-bottom:8px;padding:14px 12px;text-align:center;min-height:100px;">
+                <div style="font-size:22px;margin-bottom:6px;">{ic}</div>
+                <div style="font-size:11px;font-weight:700;color:{C['navy']};margin-bottom:4px;line-height:1.3;">{tit}</div>
+                <div style="font-size:10px;color:{C['gray_mid']};line-height:1.4;">{desc}</div>
+            </div>""", unsafe_allow_html=True)
+            if st.button("→", key=f"open_{tgt}", use_container_width=True):
+                st.session_state.page = tgt; st.rerun()
+
+    st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
+
+    # ── 2. KPI SOR ──
     k1,k2,k3,k4,k5 = st.columns(5)
     nep = active.get("ksh_nep"); nep18 = active.get("ksh_18plus")
 
@@ -423,156 +447,49 @@ if page == "Főoldal":
 
     st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
 
-    # ── CHOROPLETH TÉRKÉP (teljes szélesség) ──
-    st.markdown('<div class="chart-card" style="padding:16px 20px;">', unsafe_allow_html=True)
+    # ── 3. TÉRKÉP – teljes szélességben, nagy ──
+    st.markdown('<div class="chart-card" style="padding:18px 20px;">', unsafe_allow_html=True)
+    st.markdown('<h4 style="font-size:13px;font-weight:700;color:#0E2841;margin:0 0 12px;padding-bottom:10px;border-bottom:1px solid #E8E8E8;">🗺️ Térkép – 2022 egyéni szavazatarányok</h4>', unsafe_allow_html=True)
 
-    map_col1, map_col2, map_col3, map_col4 = st.columns([2,2,2,1])
-    with map_col1:
-        map_toggle = st.radio("", ["🎨 Győztes párt","🟠 Fidesz %","🔵 Ellenzék %","📊 Részvétel %"],
-                               horizontal=False, label_visibility="collapsed", key="mt")
-
-    # Build map dataframe
-    map_df_rows = []
-    for megye_key, d in COUNTY.items():
-        winner = "Fidesz-KDNP" if d["F"] > d["El"] else "Ellenzék"
-        margin = d["fp"] - d["elp"]
-        map_df_rows.append({
-            "megye": megye_key,
-            "megye_nev": megye_key.title(),
-            "winner": winner,
-            "fp": d["fp"], "elp": d["elp"], "rp": d["rp"],
-            "margin": round(margin, 1),
-            "valasztopolgar": d["v"],
-        })
-    map_df = pd.DataFrame(map_df_rows)
-
-    if map_toggle == "🎨 Győztes párt":
-        # Binary color: orange = Fidesz, blue = Ellenzék
-        map_df["color_val"] = map_df["winner"].map({"Fidesz-KDNP": 1.0, "Ellenzék": 0.0})
-        fig_map = go.Figure()
-        for _, row in map_df.iterrows():
-            poly = _HU_POLY.get(row["megye"])
-            if not poly: continue
-            lons = [p[0] for p in poly]
-            lats = [p[1] for p in poly]
-            clr = C["orange"] if row["winner"] == "Fidesz-KDNP" else C["blue"]
-            fig_map.add_trace(go.Scattergeo(
-                lon=lons, lat=lats,
-                fill="toself",
-                fillcolor=clr,
-                line=dict(color="white", width=1.2),
-                mode="lines",
-                name=row["winner"],
-                showlegend=False,
-                hovertemplate=(
-                    f"<b>{row['megye_nev']}</b><br>"
-                    f"Győztes: <b>{row['winner']}</b><br>"
-                    f"Fidesz-KDNP: {row['fp']}%<br>"
-                    f"Ellenzék: {row['elp']}%<br>"
-                    f"Fölény: {row['margin']}pp<br>"
-                    f"Részvétel: {row['rp']}%<extra></extra>"
-                ),
-            ))
-        # Add legend manually
-        for name, clr in [("Fidesz-KDNP", C["orange"]), ("Ellenzék", C["blue"])]:
-            fig_map.add_trace(go.Scattergeo(lon=[None],lat=[None],mode="markers",
-                marker=dict(size=12,color=clr,symbol="square"),name=name,showlegend=True))
-
-    else:
-        val_col = {"🟠 Fidesz %":"fp","🔵 Ellenzék %":"elp","📊 Részvétel %":"rp"}[map_toggle]
-        cscale  = {"🟠 Fidesz %":[[0,"#fde8d5"],[.4,C["orange"]],[1,"#7a3010"]],
-                   "🔵 Ellenzék %":[[0,"#d5e8f5"],[.4,C["blue"]],[1,"#0a2f42"]],
-                   "📊 Részvétel %":[[0,"#eef1f5"],[.5,"#8aaac0"],[1,C["navy"]]]}[map_toggle]
-        import plotly.colors as pc
-        vals = map_df[val_col].tolist()
-        vmin, vmax = min(vals), max(vals)
-        def val_to_color(v):
-            frac = (v - vmin) / (vmax - vmin + 0.001)
-            return pc.sample_colorscale(cscale, frac)[0]
-
-        fig_map = go.Figure()
-        for _, row in map_df.iterrows():
-            poly = _HU_POLY.get(row["megye"])
-            if not poly: continue
-            lons = [p[0] for p in poly]
-            lats = [p[1] for p in poly]
-            clr = val_to_color(row[val_col])
-            label = val_col.replace("fp","Fidesz %").replace("elp","Ellenzék %").replace("rp","Részvétel %")
-            fig_map.add_trace(go.Scattergeo(
-                lon=lons, lat=lats,
-                fill="toself", fillcolor=clr,
-                line=dict(color="white", width=1.2),
-                mode="lines", showlegend=False,
-                hovertemplate=(
-                    f"<b>{row['megye_nev']}</b><br>"
-                    f"{label}: <b>{row[val_col]}%</b><br>"
-                    f"Fidesz: {row['fp']}% · Ellenzék: {row['elp']}%<br>"
-                    f"Részvétel: {row['rp']}%<extra></extra>"
-                ),
-            ))
-
+    map_toggle = st.radio("", ["Fidesz %", "Ellenzék %", "Részvétel %"],
+                          horizontal=True, label_visibility="collapsed", key="mt")
+    val_col = {"Fidesz %": "fp", "Ellenzék %": "elp", "Részvétel %": "rp"}[map_toggle]
+    cscale  = {
+        "Fidesz %":    [[0,"#fde8d5"],[.5,C["orange"]],[1,"#7a3010"]],
+        "Ellenzék %":  [[0,"#d5e8f5"],[.5,C["blue"]],  [1,"#0a2f42"]],
+        "Részvétel %": [[0,"#e8edf5"],[.5,C["blue"]],  [1,"#0a2f42"]],
+    }[map_toggle]
+    map_data = [
+        {"megye": k.title(), "lat": MEGYE_COORDS[k][0], "lon": MEGYE_COORDS[k][1],
+         "val": d[val_col], "fp": d["fp"], "elp": d["elp"], "rp": d["rp"], "v": d["v"]}
+        for k, d in COUNTY.items()
+    ]
+    mdf = pd.DataFrame(map_data)
+    fig_map = px.scatter_geo(
+        mdf, lat="lat", lon="lon", size="v",
+        color="val", color_continuous_scale=cscale,
+        hover_name="megye", size_max=60,
+        hover_data={"fp":":.1f","elp":":.1f","rp":":.1f","lat":False,"lon":False,"v":":,","val":":.1f"},
+        labels={"fp":"Fidesz %","elp":"Ellenzék %","rp":"Részvétel %","v":"Választópolgár","val":map_toggle},
+    )
     fig_map.update_geos(
-        visible=True,
+        scope="europe", center=dict(lat=47.2, lon=19.3), projection_scale=10,
         showland=True, landcolor="#EEF1F5",
         showocean=False,
         showcoastlines=True, coastlinecolor="#cdd4df",
-        showcountries=True, countrycolor="#b5c4d0",
-        showframe=False,
-        bgcolor="rgba(0,0,0,0)",
-        lataxis=dict(range=[45.5, 48.9]),
-        lonaxis=dict(range=[15.8, 23.2]),
-        projection_type="mercator",
+        showcountries=True, countrycolor="#b0bcc9",
+        showframe=False, bgcolor="rgba(0,0,0,0)",
     )
     fig_map.update_layout(
         font_family="Inter, system-ui, sans-serif",
         paper_bgcolor="rgba(0,0,0,0)",
         margin=dict(l=0, r=0, t=0, b=0),
-        height=500,
-        legend=dict(
-            orientation="h", yanchor="bottom", y=0.02, xanchor="right", x=0.98,
-            bgcolor="rgba(255,255,255,.85)", bordercolor="#ddd", borderwidth=1,
-            font_size=12,
-        ),
+        height=520,
+        coloraxis_colorbar=dict(title=map_toggle, len=0.55, thickness=12, tickfont_size=11),
         geo=dict(bgcolor="rgba(0,0,0,0)"),
     )
-    st.plotly_chart(fig_map, use_container_width=True, config={"displayModeBar":False, "scrollZoom":False})
+    st.plotly_chart(fig_map, use_container_width=True, config={"displayModeBar": False})
     st.markdown('</div>', unsafe_allow_html=True)
-
-    # ── Eredmény sáv (map alatt, teljes szélesség) ──
-    parties = ["Fidesz-KDNP","Ellenzék","Mi Hazánk","MKKP","Egyéb"]
-    total_e = active["érvényes"]
-    res_cols = st.columns(len(parties))
-    for col_, p in zip(res_cols, parties):
-        pct_ = round(active.get(p,0)/total_e*100,1)
-        clr  = PARTY_COLORS.get(p,C["gray_mid"])
-        col_.markdown(f"""
-        <div style="background:{clr};border-radius:8px;padding:10px 14px;text-align:center;color:white;margin-bottom:4px;">
-            <div style="font-size:10px;font-weight:700;letter-spacing:.06em;opacity:.85;margin-bottom:3px;">{p.upper()}</div>
-            <div style="font-size:22px;font-weight:700;font-family:'Playfair Display',serif;">{pct_}%</div>
-            <div style="font-size:10px;opacity:.7;">{fmt(active.get(p,0))} szavazat</div>
-        </div>""", unsafe_allow_html=True)
-
-    st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
-    st.markdown('<p class="sec-title" style="font-size:16px;margin-bottom:12px;">Elemzési modulok</p>', unsafe_allow_html=True)
-    nc = st.columns(3)
-    nav_items = [
-        ("🗳️","Választástörténet","OEVK eredmények, jelölt adatok, megye-összehasonlítás","Választástörténet"),
-        ("👥","KSH Szociológia","Demográfia, végzettség, vallás – Bács02 vs. Ország","KSH Szociológia"),
-        ("📊","Saját Kutatások","Ideológiai profil, Big Five, médiafogyasztás","Saját Kutatások"),
-        ("🔭","Politikai Közvélemény","Pártpreferenciák, Sankey, közhangulat","Politikai Közvélemény"),
-        ("📱","Social Media","Aktivitás, témák, kommentek – hamarosan","Social Media"),
-        ("💰","Gazdasági Adatok","Percepciók, megélhetés, megtakarítás","Gazdasági Adatok"),
-    ]
-    for i,(ic,tit,desc,tgt) in enumerate(nav_items):
-        with nc[i%3]:
-            st.markdown(f"""
-            <div class="chart-card" style="margin-bottom:8px;padding:18px;">
-                <div style="font-size:24px;margin-bottom:8px;">{ic}</div>
-                <div style="font-size:13px;font-weight:700;color:{C['navy']};margin-bottom:6px;">{tit}</div>
-                <div style="font-size:11px;color:{C['gray_mid']};line-height:1.5;">{desc}</div>
-            </div>""", unsafe_allow_html=True)
-            if st.button(f"Megnyitás →", key=f"open_{tgt}", use_container_width=True):
-                st.session_state.page = tgt; st.rerun()
 
 # ──────────────── VÁLASZTÁSTÖRTÉNET ────────────────
 elif page == "Választástörténet":
