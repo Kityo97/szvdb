@@ -158,7 +158,10 @@ h1,h2,h3 {{ font-family:'Playfair Display',serif; color:{C["navy"]}; }}
 .stTabs [data-baseweb="tab-list"] {{ gap:0; background:{C["gray_lt"]}; border-radius:8px; padding:3px; }}
 .stTabs [data-baseweb="tab"] {{ border-radius:6px; font-size:12px; font-weight:600; padding:7px 18px; color:{C["navy"]} !important; }}
 .stTabs [aria-selected="true"] {{ background:{C["navy"]} !important; color:white !important; }}
-.page-wrap {{ padding: 22px 28px 50px; }}
+.page-wrap {{ padding: 22px 28px 50px; overflow-x: hidden; }}
+/* Streamlit belső paddingjának eltávolítása teljes-szélességű elemekhez */
+[data-testid="stAppViewContainer"] > section > div {{ padding-left: 0 !important; padding-right: 0 !important; }}
+[data-testid="stVerticalBlock"] {{ gap: 0rem; }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -447,9 +450,31 @@ if page == "Főoldal":
 
     st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
 
-    # ── 3. TÉRKÉP – teljes szélességben, nagy ──
-    st.markdown('<div class="chart-card" style="padding:18px 20px;">', unsafe_allow_html=True)
-    st.markdown('<h4 style="font-size:13px;font-weight:700;color:#0E2841;margin:0 0 12px;padding-bottom:10px;border-bottom:1px solid #E8E8E8;">🗺️ Térkép – 2022 egyéni szavazatarányok</h4>', unsafe_allow_html=True)
+    # ── 3. TÉRKÉP – képernyő teljes szélessége ──
+    # Kilépünk a page-wrap padding alól egy negatív margin trükkel
+    st.markdown("""
+    <style>
+    .map-fullwidth {
+        margin-left:  -28px;
+        margin-right: -28px;
+        background: white;
+        border-top: 1px solid rgba(14,40,65,.06);
+        border-bottom: 1px solid rgba(14,40,65,.06);
+        padding: 14px 20px 0;
+    }
+    .map-fullwidth h4 {
+        font-size: 13px; font-weight: 700; color: #0E2841;
+        margin: 0 0 10px; padding-bottom: 10px;
+        border-bottom: 1px solid #E8E8E8;
+    }
+    /* Make the plotly chart also expand fully */
+    .map-fullwidth .stPlotlyChart { padding: 0 !important; }
+    .map-fullwidth .element-container { padding: 0 !important; }
+    </style>
+    <div class="map-fullwidth">
+        <h4>🗺️ Térkép – 2022 egyéni szavazatarányok</h4>
+    </div>
+    """, unsafe_allow_html=True)
 
     map_toggle = st.radio("", ["Fidesz %", "Ellenzék %", "Részvétel %"],
                           horizontal=True, label_visibility="collapsed", key="mt")
@@ -468,28 +493,30 @@ if page == "Főoldal":
     fig_map = px.scatter_geo(
         mdf, lat="lat", lon="lon", size="v",
         color="val", color_continuous_scale=cscale,
-        hover_name="megye", size_max=60,
+        hover_name="megye", size_max=65,
         hover_data={"fp":":.1f","elp":":.1f","rp":":.1f","lat":False,"lon":False,"v":":,","val":":.1f"},
         labels={"fp":"Fidesz %","elp":"Ellenzék %","rp":"Részvétel %","v":"Választópolgár","val":map_toggle},
     )
     fig_map.update_geos(
-        scope="europe", center=dict(lat=47.2, lon=19.3), projection_scale=10,
+        scope="europe", center=dict(lat=47.2, lon=19.3), projection_scale=11,
         showland=True, landcolor="#EEF1F5",
         showocean=False,
         showcoastlines=True, coastlinecolor="#cdd4df",
         showcountries=True, countrycolor="#b0bcc9",
-        showframe=False, bgcolor="rgba(0,0,0,0)",
+        showframe=False, bgcolor="#F0F2F5",
     )
     fig_map.update_layout(
         font_family="Inter, system-ui, sans-serif",
-        paper_bgcolor="rgba(0,0,0,0)",
+        paper_bgcolor="#F0F2F5",
+        plot_bgcolor="#F0F2F5",
         margin=dict(l=0, r=0, t=0, b=0),
-        height=520,
-        coloraxis_colorbar=dict(title=map_toggle, len=0.55, thickness=12, tickfont_size=11),
-        geo=dict(bgcolor="rgba(0,0,0,0)"),
+        height=560,
+        coloraxis_colorbar=dict(title=map_toggle, len=0.5, thickness=14, tickfont_size=11,
+                                bgcolor="rgba(255,255,255,.8)", bordercolor="#ddd", borderwidth=1),
+        geo=dict(bgcolor="#F0F2F5"),
     )
     st.plotly_chart(fig_map, use_container_width=True, config={"displayModeBar": False})
-    st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown('<div style="height:8px;"></div>', unsafe_allow_html=True)
 
 # ──────────────── VÁLASZTÁSTÖRTÉNET ────────────────
 elif page == "Választástörténet":
