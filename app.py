@@ -451,7 +451,12 @@ if page == "Főoldal":
     st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
 
     # ── 3. TÉRKÉP – teljes szélességben, Magyarország szorosan kivágva ──
-    st.markdown('<div class="chart-card" style="padding:16px 20px 4px;">', unsafe_allow_html=True)
+    st.markdown('''<style>
+    .map-container { min-width: 900px !important; width: 100% !important; }
+    .map-container .stPlotlyChart > div { min-width: 900px !important; }
+    .map-container .stPlotlyChart iframe { min-width: 900px !important; width: 900px !important; }
+    </style>''', unsafe_allow_html=True)
+    st.markdown('<div class="chart-card map-container" style="padding:16px 20px 4px;min-width:900px;">', unsafe_allow_html=True)
     st.markdown('<h4 style="font-size:13px;font-weight:700;color:#0E2841;margin:0 0 10px;padding-bottom:10px;border-bottom:1px solid #E8E8E8;">🗺️ Térkép – 2022 egyéni szavazatarányok</h4>', unsafe_allow_html=True)
 
     map_toggle = st.radio("", ["Fidesz %", "Ellenzék %", "Részvétel %"],
@@ -495,14 +500,15 @@ if page == "Főoldal":
         font_family="Inter, system-ui, sans-serif",
         paper_bgcolor="white",
         margin=dict(l=0, r=0, t=0, b=0),
-        height=520,
+        height=500,
+        width=900,
         coloraxis_colorbar=dict(
             title=map_toggle, len=0.6, thickness=14, tickfont_size=11,
             bgcolor="rgba(255,255,255,.9)", bordercolor="#ddd", borderwidth=1,
         ),
         geo=dict(bgcolor="white"),
     )
-    st.plotly_chart(fig_map, use_container_width=True, config={"displayModeBar": False})
+    st.plotly_chart(fig_map, use_container_width=True, config={"displayModeBar": False, "responsive": True})
     st.markdown('</div>', unsafe_allow_html=True)
 
 # ──────────────── VÁLASZTÁSTÖRTÉNET ────────────────
